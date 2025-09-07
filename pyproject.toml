@@ -5,6 +5,8 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "accelerate>=1.10.1",
     "syntok>=1.4.4",
+    "torch>=2.8.0",
     "wtpsplit==2.1.6",
 ]

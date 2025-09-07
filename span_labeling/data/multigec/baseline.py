@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     login(hf_key)
 
-    checkpoint = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    checkpoint = "NousResearch/Hermes-3-Llama-3.1-8B"
     
     tokenizer = AutoTokenizer.from_pretrained(checkpoint)
     config = AutoConfig.from_pretrained(checkpoint, max_new_tokens=3000)
@@ -85,6 +85,9 @@ if __name__ == "__main__":
     # Inference phase
 
     for n, (essay_id, essay_text) in enumerate(essay_dict.items()):
+        
+        if n > 10:
+            break
 
         logger.info("Correcting essay {} of {}...".format(n+1, n_essays))
 
@@ -103,22 +106,22 @@ if __name__ == "__main__":
 
         # Given an essay, generate a prompt
         def generate_prompt(text):
-            prompt =  """<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+            prompt =  """<|im_start|>system
 
-You are a grammatical error correction tool. Your task is to correct the grammaticality and spelling of the input essay written by a learner of {}. {} Return only the corrected text and nothing more.
+You are a grammatical error correction tool. Your task is to correct the grammaticality and spelling of the input essay written by a learner of {}. {} Return only the corrected text and nothing more.<|im_end|>
 
 Input essay:
-<|eot_id|><|start_header_id|>user<|end_header_id|>
-{}<|eot_id|>
+<|im_start|>user
+{}<|im_end|>
 
-<|start_header_id|>assistant<|end_header_id|>
+<|im_start|>assistant
 Output essay:
-{}<|eot_id|>
+{}<|im_end|>
 
 Input essay:
-<|eot_id|><|start_header_id|>user<|end_header_id|>
-{}<|eot_id|>
-<|start_header_id|>assistant<|end_header_id|>
+<|im_start|>user
+{}<|im_end|>
+<|im_start|>assistant
 Output essay:
 """.format(lang, task_prompt, example_in, example_out, text) 
             return prompt
@@ -152,7 +155,7 @@ Output essay:
             n_tokens = inputs["attention_mask"].shape[1]
             outputs = model.generate(**inputs, max_length=max_length, pad_token_id=tokenizer.eos_token_id)
             out_text = tokenizer.decode(outputs[0])
-            correction = out_text.split("Output essay:\n")[-1].strip("<|eot_id|>")
+            correction = out_text.split("Output essay:\n")[-1].strip("<|im_end|>")
 
             correction_list.append(correction)
 
