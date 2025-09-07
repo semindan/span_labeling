@@ -3,5 +3,8 @@ name = "span-labeling"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "syntok>=1.4.4",
+    "wtpsplit==2.1.6",
+]
