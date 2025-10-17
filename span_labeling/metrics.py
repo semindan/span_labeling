@@ -5,7 +5,7 @@ def compute_overlap_f1(
     predicted_spans: list[dict[str, Any]],
     gold_spans: list[dict[str, Any]],
     hard_matching: bool = True,
-) -> dict[str, float | int]:
+) -> dict[str, Any]:
     """
     Compute precision, recall, F1 with character-level overlap matching.
     Based on factgenie's overlap F1 implementation.
@@ -78,6 +78,6 @@ def evaluate(
     predicted: list[dict[str, Any]],
     gold: list[dict[str, Any]],
     hard_matching: bool = True,
-) -> dict[str, float | int]:
+) -> dict[str, Any]:
     """Evaluate with overlap F1"""
     return compute_overlap_f1(predicted, gold, hard_matching=hard_matching)
