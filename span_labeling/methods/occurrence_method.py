@@ -1,6 +1,51 @@
 # methods/json_occurrence_method.py
-from .json_method import JSONSpanLabeler
+import textwrap
+from dataclasses import dataclass, field
+from typing import Any
+from span_labeling.methods.json_method import JSONSpanLabeler
 from span_labeling.registry import EXAMPLES
+
+
+
+format: dict[str, str] = {
+        "ner" : textwrap.dedent("""
+            Return a JSON list. Each item must have:
+            - "text": exact span or pattern from input
+            - "label": category (PERSON, ORG, LOC)
+            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
+        """),
+        "synthetic" : textwrap.dedent("""
+            Return a JSON list. Each item must have:
+            - "text": exact span or pattern from input
+            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
+        """),
+        "error" : textwrap.dedent("""
+            Return a JSON list. Each item must have:
+            - "text": exact span or pattern from input
+            - "label": category (GRAMMAR, SPELLING, or PUNCTUATION)
+            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
+        """),
+        "multigec" : textwrap.dedent("""
+            Return a JSON list. Each item must have:
+            - "text": exact span or pattern from input
+            - "label": error category (R, U or M)
+            - "correction": correction text
+            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
+        """),
+        "wmt" : textwrap.dedent("""
+            Return a JSON list. Each item must have:
+            - "text": exact span or pattern from translation
+            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
+        """),
+                                     
+        "default" : textwrap.dedent("""
+            Return a JSON list. Each item must have:
+            - "text": exact span or pattern from input
+            - "label": category (if applicable)
+            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
+        """),
+                                      
+}
 
 
 class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
@@ -9,18 +54,20 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
         if examples:
             examples = "Example:\n" + examples + "\n\n"
 
-        return f"""Task: {entry['instruction']}
+        model_input = entry.get('model_input',
+                                "Text: " + entry.get('text', ''))
 
-Text: "{entry['text']}"
+        prompt = textwrap.dedent(
+        f"""Task: {entry['instruction']}
+            {model_input}
 
-{examples}
+            {examples}
 
-Return a JSON list. Each item must have:
-- "text": exact span or pattern from input
-- "occurrence": which occurrence (1 for first, 2 for second, etc.)
+            {format.get(entry.get('key', None), format['default'])}
 
-
-JSON output:"""
+            JSON output:""")
+        
+        return prompt
     
     def parse_response(self, entry: dict) -> list[dict]:
         spans = super().parse_response(entry)
@@ -38,3 +85,4 @@ JSON output:"""
                 span['end'] = start + len(span['text'])
         
         return spans
+    

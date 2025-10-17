@@ -9,7 +9,6 @@ class Dataset(ABC):
     name: str = field(default=None)
     description: str = field(default=None)
     instruction: str = field(default=None)
-    examples: list[str] = field(default_factory=list)
     data: list[dict] = field(default_factory=list)
 
     @abstractmethod
@@ -38,16 +37,6 @@ class SyntheticDataset(Dataset):
     key: str = field(default="synthetic")
     name: str = field(default="Synthetic regex dataset")
     description: str = field(default="Synthetic pattern finding task")
-    examples: list[str] = field(default_factory=lambda: [
-        """Task: Find all sequences matching 'ruhig wasser' that are not followed by 'groß'
-Text: schiff flugzeug licht wasser schwarz laufen ruhig wasser flugzeug licht m\u00f6gen flugzeug licht flugzeug licht laufen geb\u00e4ude aufgeregt schwarz flugzeug licht wasser ruhig wasser wasser"
-Output:
-    [
-        {"text": "ruhig wasser", "start": 44, "end": 56},
-        { "text": "ruhig wasser", "label": "", "start": 163, "end": 175}
-    ]
-"""])
-
 
     def load(self):
         self.data = self.load_json()
@@ -55,7 +44,6 @@ Output:
     
     def _preprocess_item(self, entry):
         entry["key"] = self.key
-        entry["examples"] = self.examples
         return entry
     
     def __iter__(self):
@@ -75,11 +63,32 @@ class ErrorDataset(Dataset):
         return self
     
     def _preprocess_item(self, entry):
-        if not entry.get("instruction") and self.instruction:
-            entry["instruction"] = self.instruction
-        if not entry.get("examples") and self.examples:
-            entry["examples"] = self.examples
+        entry["key"] = self.key
+        entry["instruction"] = entry.get("instruction", self.instruction)
+        return entry
+    
+    def __getitem__(self, idx):
+        return self.data[idx]
 
+    def __iter__(self):
+        for entry in self.data:
+            yield self._preprocess_item(entry)
+
+
+@dataclass
+class MultigecDataset(Dataset):
+    key: str = field(default="multigec")
+    name: str = field(default="MultiGEC dataset")
+    description: str = field(default="Grammatical error correction task with multiple annotations")
+    instruction: str = field(default="Identify spans containing errors and correct them. Use the following labels: R - replace, U - unnecessary, M - missing. Correct just the individual words, not phrases.")
+
+    def load(self):
+        self.data = self.load_json()
+        return self
+    
+    def _preprocess_item(self, entry):
+        entry["key"] = self.key
+        entry["instruction"] = entry.get("instruction", self.instruction)
         return entry
     
     def __getitem__(self, idx):
@@ -97,20 +106,48 @@ class NerDataset(Dataset):
     description: str = field(default="NER task to identify PERSON, ORG, and LOC entities")
     instruction: str = field(default="Extract PERSON, ORG, and LOC entities")
     
+    def load(self):
+        self.data = self.load_json()
+        return self
+    
+    def _preprocess_item(self, entry):
+        entry["key"] = self.key
+        entry["instruction"] = entry.get("instruction", self.instruction)
+        return entry
+    
+    def __getitem__(self, idx):
+        return self.data[idx]
 
+    def __iter__(self):
+        for entry in self.data:
+            yield self._preprocess_item(entry)
 
+@dataclass
+class WMTDataset(Dataset):
+    key: str = field(default="wmt")
+    name: str = field(default="WMT dataset")
+    description: str = field(default="WMT")
+    instruction: str = field(default="Identify translation errors by comparing the translation to the source text. The error is usually a word or a short phrase that does not reflect the .")
 
     def load(self):
         self.data = self.load_json()
         return self
     
     def _preprocess_item(self, entry):
-        if not entry.get("instruction") and self.instruction:
-            entry["instruction"] = self.instruction
-        if not entry.get("examples") and self.examples:
-            entry["examples"] = self.examples
-        
-        entry["instruction"] = self.instruction + " Use 0-indexed character positions."
+        entry["key"] = self.key
+        entry["instruction"] = entry.get("instruction", self.instruction)
+        entry["model_input"] = f'Source: "{entry["source"]}"\nTranslation: "{entry["text"]}"'
+        spans = []
+        for span in entry["spans"]:
+            spans.append(
+                {
+                    "text": span["text"],
+                    "start": span["start"],
+                    "label" : "",
+                    "end": span["end"]
+                }
+            )
+        entry["spans"] = spans
         return entry
     
     def __getitem__(self, idx):

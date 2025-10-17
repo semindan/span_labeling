@@ -1,7 +1,44 @@
 import json
 import re
+import textwrap
 from typing import List, Dict
 from span_labeling.base import SpanLabeler
+
+
+format: dict[str, str] = {
+    "ner": textwrap.dedent("""
+        Return a JSON list. Each item must have:
+        - "text": exact text span from input
+        - "label": category (PERSON, ORG, LOC)
+        Example: [{"text": "Apple Inc", "label": "ORG"}]
+    """),
+    "synthetic": textwrap.dedent("""
+        Return a JSON list. Each item must have:
+        - "text": exact span or pattern from input
+        Example: [{"text": "cat"}]
+    """),
+    "error": textwrap.dedent("""
+        Return a JSON list. Each item must have:
+        - "text": exact text span from input
+        - "label": category (GRAMMAR, SPELLING, PUNCTUATION)
+        Example: [{"text": "go", "label": "GRAMMAR"}]
+    """),
+    "multigec": textwrap.dedent("""
+        Return a JSON list. Each item must have:
+        - "text": exact text span from input
+        - "label": error category (R, U or M)
+        - "correction": correction text
+        Example: [{"text": "teh", "label": "R", "correction": "the"}]
+    """),
+    "default": textwrap.dedent("""
+        Return a JSON list. Each item must have:
+        - "text": exact text span from input
+        - "label": the category
+        Example: [{"text": "Apple", "label": "ORG"}]
+    """),
+}
+
+
 
 class JSONSpanLabeler(SpanLabeler):
     def format_prompt(self, entry: dict) -> str:
@@ -9,11 +46,7 @@ class JSONSpanLabeler(SpanLabeler):
 
 Text: "{entry['text']}"
 
-Return a JSON list. Each item should have:
-- "text": the exact text span from the input
-- "label": the category
-
-Example: [{{"text": "Apple", "label": "ORG"}}]
+{format.get(entry.get('key', None), format['default'])}
 
 JSON output:"""
 
