@@ -1,0 +1,64 @@
+import yaml
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).absolute().parent.parent.as_posix()
+
+
+def load_prompts(prompts_dir: str = "span_labeling/prompts") -> dict:
+    """Load all YAML files from prompts directory"""
+    prompts = {}
+    prompts_path = Path(PROJECT_ROOT) / prompts_dir
+
+    if not prompts_path.exists():
+        raise FileNotFoundError(f"Prompts directory not found: {prompts_dir}")
+
+    for yaml_file in prompts_path.glob("*.yaml"):
+        with open(yaml_file) as f:
+            data = yaml.safe_load(f)
+
+        for prompt in data["prompts"]:
+            prompts[prompt["method"]] = prompts.get(prompt["method"], {})
+            prompts[prompt["method"]][prompt["dataset"]] = prompt
+
+    return prompts
+
+
+PROMPT_REGISTRY = load_prompts()
+
+
+def get_prompt_config(method: str, dataset: str):
+    return PROMPT_REGISTRY.get(method, {}).get(dataset, {})
+
+
+def build_prompt(method: str, dataset: str, entry: dict) -> str:
+    prompt_data = get_prompt_config(method, dataset)
+    if not prompt_data:
+        raise ValueError(f"No prompt found for {method}/{dataset}")
+
+    sections = []
+
+    sections.append(prompt_data["task"])
+    sections.append("")
+
+    if "format" in prompt_data:
+        sections.append(f"Output Format: {prompt_data['format']}")
+
+    if "labels" in prompt_data:
+        sections.append(f"Labels: {', '.join(prompt_data['labels'])}")
+    elif "label_dict" in prompt_data:
+        labels_section = "Labels:\n"
+        for k, v in prompt_data["label_dict"].items():
+            labels_section += f"{k} : {v}\n"
+        sections.append(labels_section)
+
+    if "note" in prompt_data:
+        sections.append(f"\n{prompt_data['note']}")
+
+    if "instruction" in prompt_data:
+        sections.append(f"\n{prompt_data['instruction']}")
+
+    sections.append(f"{entry['model_input']}")
+    sections.append(f"\n{prompt_data['last_line']}")
+
+    return "\n".join(sections)
