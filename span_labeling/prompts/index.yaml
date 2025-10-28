@@ -1,0 +1,60 @@
+note_index: &note_index |
+  IMPORTANT: Character positions are 0-indexed.
+  - First character is at position 0
+  - Spaces count as characters
+  - start is inclusive, end is exclusive
+output_line: &output_line "Output:"
+
+# Prompts
+prompts:
+  - method: index
+    dataset: ner
+    task: "Extract named entities (PERSON, ORG, LOC) from the text."
+    format: "[start:end] = LABEL"
+    labels: ["PERSON", "ORG", "LOC"]
+    note: *note_index
+    last_line: *output_line
+
+  - method: index
+    dataset: error
+    task: "Identify grammatical errors in the text and classify them."
+    format: "[start:end] = LABEL"
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_index
+    last_line: *output_line
+
+  - method: index
+    dataset: synthetic
+    task: "Find all text spans that match the given pattern queries."
+    format: "[start:end] = MATCH"
+    note: *note_index
+    last_line: *output_line
+
+  - method: index
+    dataset: multigec
+    task: "Identify grammatical errors in learner-written text."
+    format: "[start:end] = LABEL, CORRECTION"
+    label_dict:
+      R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
+      M: "Missing: word is missing"
+      U: "Unnecessary: extra word"
+    note: *note_index
+    last_line: *output_line
+
+  - method: index
+    dataset: wmt
+    task: "Identify translation errors by comparing the translation to the source text."
+    format: "[start:end] = SEVERITY"
+    label_dict:
+      0: "Minor error (understandable, small mistake)"
+      1: "Major error (changes meaning, serious mistake)"
+    note: |
+      IMPORTANT: Character positions are 0-indexed.
+      - First character is at position 0
+      - Spaces count as characters
+      - start is inclusive, end is exclusive
+      - The spans are located in Translation
+    last_line: *output_line
+
+
+
