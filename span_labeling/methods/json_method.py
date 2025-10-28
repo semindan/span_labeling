@@ -2,7 +2,7 @@ import json
 import re
 import textwrap
 from typing import List, Dict
-from span_labeling.base import SpanLabeler
+from span_labeling.methods.span_labeler import SpanLabeler
 
 
 format: dict[str, str] = {
@@ -39,43 +39,47 @@ format: dict[str, str] = {
 }
 
 
-
 class JSONSpanLabeler(SpanLabeler):
-    def format_prompt(self, entry: dict) -> str:
-        return f"""Task: {entry['instruction']}
+    name: str = "json"
 
-Text: "{entry['text']}"
+    # def format_prompt(self, entry: dict) -> str:
+    #     return textwrap.dedent(
+    #     f"""{entry['instruction']}
 
-{format.get(entry.get('key', None), format['default'])}
+    #         {entry['model_input']}"
 
-JSON output:"""
+    #         {format.get(entry.get('key', None), format['default'])}
+
+    #         JSON output:""")
 
     def parse_response(self, entry: dict) -> List[Dict]:
         # Find JSON in response
         try:
             # Look for [...] pattern
-            match = re.search(r'\[.*?\]', entry["response"], re.DOTALL)
+            match = re.search(r"\[.*?\]", entry["response"], re.DOTALL)
             if match:
                 json_str = match.group()
                 data = json.loads(json_str)
-                
+
                 results = []
                 for item in data:
-                    span_text = item.get('text', '')
-                    label = item.get('label', '')
-                    
+                    span_text = item.get("text", "")
+                    label = item.get("label", "")
+
                     # Find where this text appears
                     idx = entry["text"].find(span_text)
                     if idx != -1:
-                        results.append({
-                            'text': span_text,
-                            'label': label,
-                            'start': idx,
-                            'end': idx + len(span_text)
-                        })
-                
+                        results.append(
+                            {
+                                "text": span_text,
+                                "label": label,
+                                "start": idx,
+                                "end": idx + len(span_text),
+                            }
+                        )
+
                 return results
-        except:
-            pass
-        
+        except Exception as e:
+            print(f"Error: {e}")
+
         return []

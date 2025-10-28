@@ -1,7 +1,7 @@
 import re
 import textwrap
 from typing import List, Dict
-from span_labeling.base import SpanLabeler
+from span_labeling.methods.span_labeler import SpanLabeler
 
 format: dict[str, str] = {
     "ner": textwrap.dedent("""
@@ -11,6 +11,8 @@ format: dict[str, str] = {
         Example:
             Text: Apple is in Cupertino.  
             Tagged text: <entity type="ORG">Apple</entity> is in <entity type="LOC">Cupertino</entity>.
+                           
+        IMPORTANT: You must output the entire text, including non-tagged parts.
     """),
     "synthetic": textwrap.dedent("""
         Rewrite the whole input text with XML tags around matching patterns.
@@ -18,6 +20,8 @@ format: dict[str, str] = {
         Format Example:
             Text: The cat sat on the mat.
             Tagged text: The <match>cat</match> sat on the mat.
+
+        IMPORTANT: You must output the entire text, including non-tagged parts.
     """),
     "error": textwrap.dedent("""
         Rewrite the whole input text with XML tags inserted around errors.
@@ -27,6 +31,8 @@ format: dict[str, str] = {
         Format Example:
             Text: He go to school.
             Tagged text: He <error type="GRAMMAR">go</error> to school.
+        
+        IMPORTANT: You must output the entire text, including non-tagged parts.
     """),
     "multigec": textwrap.dedent("""
         Rewrite the whole input text with XML tags around relevant spans. Identify grammatical errors in learner-written text and provide corrections.
@@ -57,58 +63,114 @@ format: dict[str, str] = {
             Tagged: She <error type="VERB" correction="doesn't">dont</error> like <error type="U" correction="">the</error> apples<error type="M" correction="."></error>
     
         Only tag errors. Keep correct text unchanged.
+                                
+        IMPORTANT: You must output the entire text, including non-tagged parts.
     """),
+    "wmt": textwrap.dedent("""
+    Compare the source text with the translation and identify translation errors.
+    Rewrite the TRANSLATION with XML tags around errors.
+    
+    Error Severity:
+    - 0 = Minor error (understandable, small mistake)
+    - 1 = Major error (changes meaning, serious mistake)
+    
+    Format: <error severity="LEVEL">text</error>
+    
+    Example 1:
+        Source: "The house is very big."
+        Translation: "Das Haus ist große."
+        Tagged: Das Haus ist <error severity="1">große</error>.
+        (Wrong adjective form - major error)
+    
+    Example 2:
+        Source: "I like cats"
+        Translation: "Ich mag Katzen sehr"
+        Tagged: Ich mag Katzen <error severity="0">sehr</error>
+        (Extra word - minor error, meaning still clear)
+    
+    Only tag errors in the TRANSLATION. Keep correct words unchanged.
+    
+    IMPORTANT: You must output the entire translation text, including non-tagged parts.
+"""),
     "default": textwrap.dedent("""
         Rewrite the whole input text with XML tags around relevant spans.
         Format: <entity type="LABEL">text</entity>
         Format Example:
             Text: Apple was founded.      
             Tagged text: <entity type="ORG">Apple</entity> was founded.
+        
+        IMPORTANT: You must output the entire text, including non-tagged parts.
     """),
 }
 
 
 class XMLSpanLabeler(SpanLabeler):
-
-    def format_prompt(self, entry: dict) -> str:
-        return f"""Task: {entry['instruction']}
-
-Original text: "{entry['text']}"
-
-{format.get(entry.get('key', None), format['default'])}
-
-Tagged text:"""
+    name: str = "xml"
 
     def parse_response(self, entry: dict) -> List[Dict]:
+        response = entry["response"]
+        original = entry["text"]
         results = []
-        
-        # Try different XML patterns
-        patterns = [
-            r'<entity type="([^"]+)">([^<]+)</entity>',
-            r'<error type="([^"]+)">([^<]+)</error>',
-            r'<match>([^<]+)</match>',
-            r'<(\w+)>([^<]+)</\1>',  # <PERSON>Steve Jobs</PERSON>
-            r'<error type="([^"]+)" correction="([^"]+)">([^<]+)</error>',  # <error type="R" correction="the">teh</error>
-        ]
+        tag_pattern = r"<(\w+)([^>]*)>([^<]+)</\1>"
 
-        for pattern in patterns:
-            for match in re.finditer(pattern, entry["response"]):
-                label = match.group(1)
-                span_text = match.group(2)
-                
-                idx = entry["text"].find(span_text)
-                if idx != -1:
-                    results.append({
-                        'text': span_text,
-                        'label': label,
-                        'start': idx,
-                        'end': idx + len(span_text)
-                    })
-        
+        original_pos = 0
+        response_pos = 0
+        used_positions = set()
+
+        for match in re.finditer(tag_pattern, response):
+            tag_name = match.group(1)
+            attributes = match.group(2)
+            span_text = match.group(3)
+
+            before = response[response_pos : match.start()]
+            actual_before = re.sub(r"<[^>]+>", "", before)
+            original_pos += len(actual_before)
+
+            type_match = re.search(r'type="([^"]+)"', attributes)
+            label = type_match.group(1) if type_match else tag_name.upper()
+
+            expected_start = original_pos
+            expected_end = expected_start + len(span_text)
+
+            if (
+                expected_end <= len(original)
+                and original[expected_start:expected_end] == span_text
+                and expected_start not in used_positions
+            ):
+                results.append(
+                    {
+                        "text": span_text,
+                        "label": label,
+                        "start": expected_start,
+                        "end": expected_end,
+                    }
+                )
+                used_positions.add(expected_start)
+            else:
+                occurrences = []
+                search_pos = 0
+                while True:
+                    idx = original.find(span_text, search_pos)
+                    if idx == -1:
+                        break
+                    if idx not in used_positions:
+                        occurrences.append(idx)
+                    search_pos = idx + 1
+
+                if occurrences:
+                    best_pos = min(occurrences, key=lambda x: abs(x - expected_start))
+
+                    results.append(
+                        {
+                            "text": span_text,
+                            "label": label,
+                            "start": best_pos,
+                            "end": best_pos + len(span_text),
+                        }
+                    )
+                    used_positions.add(best_pos)
+
+            original_pos = expected_end
+            response_pos = match.end()
+
         return results
-    
-
-
-
-"ajlskd;fj adslkfjl;asdj fl;ajdsl;fjl content content sdaklfjasl;dkfj kadsjflk;js adlfk;jsl kjadf content2"
-"ajlskd;fj adslkfjl;asdajsadfsadf fl;ajdsl;fjl <...>content</...> content sdaklfjasl;dkfj kadsjflk;js adlfk;jsl kjadf <...>content2</...>"
