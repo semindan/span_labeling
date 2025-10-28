@@ -33,7 +33,7 @@ prompts:
   - method: occurrence
     dataset: multigec
     task: "Identify grammatical errors in learner-written text."
-    format: '[{"text": "exact span from input (or empty for M)", "label": "error type (R/U/M)", "correction": "correction text", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    format: '[{"text": "exact span from input (or empty for M)", "label": "error type (R/U/M)", "occurrence": "which occurrence (1, 2, 3...)"}]'
     label_dict:
       R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
       M: "Missing: word is missing (text field is empty)"

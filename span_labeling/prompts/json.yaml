@@ -29,10 +29,9 @@ prompts:
   - method: json
     dataset: multigec
     task: "Identify grammatical errors in learner-written text."
-    format: '[{"text": "exact text span from input (or empty for M)", "label": "error type (R/U/M)", "correction": "correction text"}]'
+    format: '[{"text": "exact text span from input (or empty for M)", "label": "error type (R/U/M)"}]'
     label_dict:
       R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
-      R: "Replace: wrong word (include category: VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER)"
       M: "Missing: word is missing (text field is empty)"
       U: "Unnecessary: extra word"
     note: *note_json

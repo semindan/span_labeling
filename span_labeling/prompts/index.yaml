@@ -33,7 +33,7 @@ prompts:
   - method: index
     dataset: multigec
     task: "Identify grammatical errors in learner-written text."
-    format: "[start:end] = LABEL, CORRECTION"
+    format: "[start:end] = LABEL"
     label_dict:
       R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
       M: "Missing: word is missing"
