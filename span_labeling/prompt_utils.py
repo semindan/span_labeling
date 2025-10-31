@@ -1,6 +1,6 @@
-import yaml
 from pathlib import Path
 
+import yaml
 
 PROJECT_ROOT = Path(__file__).absolute().parent.parent.as_posix()
 
@@ -42,7 +42,7 @@ def build_prompt(method: str, dataset: str, entry: dict) -> str:
     sections.append("")
 
     if "format" in prompt_data:
-        sections.append(f"Output Format: {prompt_data['format']}")
+        sections.append(f"Tag format: {prompt_data['format']}")
 
     if "labels" in prompt_data:
         sections.append(f"Labels: {', '.join(prompt_data['labels'])}")
@@ -58,7 +58,9 @@ def build_prompt(method: str, dataset: str, entry: dict) -> str:
     if "instruction" in prompt_data:
         sections.append(f"\n{prompt_data['instruction']}")
 
-    sections.append(f"{entry['model_input']}")
-    sections.append(f"\n{prompt_data['last_line']}")
+    sections.append(f"Input:\n\n{entry['model_input']}")
+
+    # This is not necessary with chat templating
+    # sections.append(f"\n{prompt_data['last_line']}\n\n")
 
     return "\n".join(sections)
