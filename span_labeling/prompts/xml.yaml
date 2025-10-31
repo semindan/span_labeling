@@ -1,49 +1,47 @@
 # prompts/xml.yaml
 
 note_xml: &note_xml |
-  IMPORTANT: You must output the entire text, including non-tagged parts.
-  Rewrite the whole input text with XML tags.
-output_line: &output_line "Tagged text:"
-
+  IMPORTANT: Your output needs to include copy of the entire input text, including non-tagged parts. If you are not outputting any tags, you need to copy the input text literally. Surround the specific spans with the XML tags as required.
+  
+  Do not output any additional explanations or comments, start generating output straight away.
 # Prompts
 prompts:
   - method: xml
     dataset: ner
-    task: "Extract named entities (PERSON, ORG, LOC) from the text."
-    format: '<entity type="LABEL">text</entity>'
-    labels: ["PERSON", "ORG", "LOC"]
+    task: 'Extract named entities (PER, ORG, LOC) from the text using XML tags. Example: <entity type="PER">John</entity> lives in <entity type="LOC">Paris</entity>.'
+    format: '<entity type="LABEL"></entity>'
+    label_dict:
+      PER: "Names of people"
+      ORG: "Organizations, companies, institutions"
+      LOC: "Locations, places, geographical entities"
     note: *note_xml
-    last_line: *output_line
 
   - method: xml
     dataset: error
-    task: "Identify grammatical errors in the text. Only tag the incorrect words."
+    task: 'Identify grammatical errors in the text by tagging the error spans. Example: He <error type="GRAMMAR">go</error> to school.'
     format: '<error type="LABEL">text</error>'
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
     note: *note_xml
-    last_line: *output_line
 
   - method: xml
     dataset: synthetic
-    task: "Find all text spans that match the given pattern queries."
+    task: 'Find all text spans that match the given pattern queries. Example: text <match>pattern</match> text'
     format: '<match>text</match>'
     note: *note_xml
-    last_line: *output_line
 
   - method: xml
     dataset: multigec
-    task: "Identify grammatical errors in learner-written text."
+    task: 'Identify grammatical errors in learner-written text. Example: I <error type="R">go</error> to school <error type="M"></error>Monday and <error type="U">very</error> studied hard.'
     format: '<error type="TYPE">text</error>'
     label_dict:
-      R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
-      M: "Missing: word is missing, use empty tag"
-      U: "Unnecessary: extra word, correction is empty string"
+      R: "Replace: incorrect expression that needs to be replaced"
+      M: "Missing: part of the sentence is missing, use an empty tag"
+      U: "Unnecessary: extra expression that should be deleted"
     note: *note_xml
-    last_line: *output_line
 
   - method: xml
     dataset: wmt
-    task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."
+    task: 'Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors. Example: The meeting is <error severity="0">shedule</error> for <error severity="1">yesterday</error> at 3 PM in the conference room.'
     format: '<error severity="LEVEL">text</error>'
     label_dict:
       0: "Minor error (understandable, small mistake)"
@@ -51,4 +49,3 @@ prompts:
     note: |
       IMPORTANT: You must output the entire translation text, including non-tagged parts.
       Only tag errors in the TRANSLATION. Keep correct words unchanged.
-    last_line: *output_line

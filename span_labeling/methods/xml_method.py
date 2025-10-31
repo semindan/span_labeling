@@ -1,10 +1,12 @@
 import re
 import textwrap
-from typing import List, Dict
+from typing import Dict, List
+
 from span_labeling.methods.span_labeler import SpanLabeler
 
 format: dict[str, str] = {
-    "ner": textwrap.dedent("""
+    "ner": textwrap.dedent(
+        """
         Rewrite the whole input text with XML tags around entities.
         Only use the following labels: PERSON, ORG, LOC
         Format: <entity type="LABEL">text</entity>
@@ -13,8 +15,10 @@ format: dict[str, str] = {
             Tagged text: <entity type="ORG">Apple</entity> is in <entity type="LOC">Cupertino</entity>.
                            
         IMPORTANT: You must output the entire text, including non-tagged parts.
-    """),
-    "synthetic": textwrap.dedent("""
+    """
+    ),
+    "synthetic": textwrap.dedent(
+        """
         Rewrite the whole input text with XML tags around matching patterns.
         Format: <match>text</match>
         Format Example:
@@ -22,8 +26,10 @@ format: dict[str, str] = {
             Tagged text: The <match>cat</match> sat on the mat.
 
         IMPORTANT: You must output the entire text, including non-tagged parts.
-    """),
-    "error": textwrap.dedent("""
+    """
+    ),
+    "error": textwrap.dedent(
+        """
         Rewrite the whole input text with XML tags inserted around errors.
         Only tag the incorrect words.
         Only use the following labels: GRAMMAR, SPELLING, PUNCTUATION
@@ -33,8 +39,10 @@ format: dict[str, str] = {
             Tagged text: He <error type="GRAMMAR">go</error> to school.
         
         IMPORTANT: You must output the entire text, including non-tagged parts.
-    """),
-    "multigec": textwrap.dedent("""
+    """
+    ),
+    "multigec": textwrap.dedent(
+        """
         Rewrite the whole input text with XML tags around relevant spans. Identify grammatical errors in learner-written text and provide corrections.
         There are three error types:
         - R (Replace): wrong word, needs replacement
@@ -65,8 +73,10 @@ format: dict[str, str] = {
         Only tag errors. Keep correct text unchanged.
                                 
         IMPORTANT: You must output the entire text, including non-tagged parts.
-    """),
-    "wmt": textwrap.dedent("""
+    """
+    ),
+    "wmt": textwrap.dedent(
+        """
     Compare the source text with the translation and identify translation errors.
     Rewrite the TRANSLATION with XML tags around errors.
     
@@ -91,8 +101,10 @@ format: dict[str, str] = {
     Only tag errors in the TRANSLATION. Keep correct words unchanged.
     
     IMPORTANT: You must output the entire translation text, including non-tagged parts.
-"""),
-    "default": textwrap.dedent("""
+"""
+    ),
+    "default": textwrap.dedent(
+        """
         Rewrite the whole input text with XML tags around relevant spans.
         Format: <entity type="LABEL">text</entity>
         Format Example:
@@ -100,7 +112,8 @@ format: dict[str, str] = {
             Tagged text: <entity type="ORG">Apple</entity> was founded.
         
         IMPORTANT: You must output the entire text, including non-tagged parts.
-    """),
+    """
+    ),
 }
 
 
