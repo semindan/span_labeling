@@ -1,0 +1,17 @@
+llm:
+  system_message: "You are a precise span labeling system."
+  ollama:
+    base_url: "http://tdll-4gpu1:11434/v1"
+    model: "phi4-mini:3.8b-fp16"
+    # model: "gemma3:27b"
+  hf_api:
+    api_url: "http://tdll-4gpu1:5454"
+    model: "microsoft/Phi-4-mini-instruct"
+    # model: "google/gemma-3-27b-it"
+
+evaluation:
+  hard_matching: false  # If true, labels must match exactly for overlap F1
+
+methods:
+  constrained_xml:
+    debug: true  # Enable debug mode for FastAPI XML method
