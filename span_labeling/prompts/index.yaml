@@ -14,6 +14,15 @@ prompts:
     labels: ["PERSON", "ORG", "LOC"]
     note: *note_index
     last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [0:9] = PER  
+      [17:26] = ORG  
+      [30:39] = LOC  
+      [71:91] = ORG  
 
   - method: index
     dataset: error
@@ -29,6 +38,15 @@ prompts:
     format: "[start:end] = MATCH"
     note: *note_index
     last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [65:71] = MATCH
+      [86:90] = MATCH
+      [104:109] = MATCH
 
   - method: index
     dataset: multigec
@@ -40,11 +58,18 @@ prompts:
       U: "Unnecessary: extra word"
     note: *note_index
     last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework .
+      Output:
+      [4:6] = R
+      [27:28] = U
+      [47:53] = R
 
   - method: index
     dataset: wmt
     task: "Identify translation errors by comparing the translation to the source text."
-    format: "[start:end] = SEVERITY"
+    format: "[start:end] = LABEL"
     label_dict:
       0: "Minor error (understandable, small mistake)"
       1: "Major error (changes meaning, serious mistake)"
@@ -55,6 +80,17 @@ prompts:
       - start is inclusive, end is exclusive
       - The spans are located in Translation
     last_line: *output_line
+    examples:
+    - |
+      Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
+      Translation: Sie besucht das Museum und kauft einen Reiseführer, aber sie vergessen ihren Regenschirm .
+
+      Output:
+      [4:11] = 1
+      [27:32] = 1
+      [61:70] = 1
+      [88:89] = 0 
+
 
 
 

@@ -14,6 +14,13 @@ prompts:
     labels: ["PERSON", "ORG", "LOC"]
     note: *note_xml
     last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      <entity type="PER">Lina Berg</entity> joined <entity type="ORG">AstraTech</entity> in <entity type="LOC">Stockholm</entity> after finishing her studies at <entity type="ORG">Northvale University</entity>.
+
 
   - method: xml
     dataset: error
@@ -29,6 +36,14 @@ prompts:
     format: '<match>text</match>'
     note: *note_xml
     last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      house wake think grey calm wake think ship fast wake think no air <match>light</match> music play air <match>sad</match> read dark air <match>love</match> fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
 
   - method: xml
     dataset: multigec
@@ -40,11 +55,17 @@ prompts:
       U: "Unnecessary: extra word, correction is empty string"
     note: *note_xml
     last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework .
+
+      Output:
+      She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework .
 
   - method: xml
     dataset: wmt
     task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."
-    format: '<error severity="LEVEL">text</error>'
+    format: '<error type="LEVEL">text</error>'
     label_dict:
       0: "Minor error (understandable, small mistake)"
       1: "Major error (changes meaning, serious mistake)"
@@ -52,3 +73,10 @@ prompts:
       IMPORTANT: You must output the entire translation text, including non-tagged parts.
       Only tag errors in the TRANSLATION. Keep correct words unchanged.
     last_line: *output_line
+    examples:
+    - |
+      Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
+      Translation: Sie besucht das Museum und kauft einen Reiseführer, aber sie vergessen ihren Regenschirm .
+
+      Output:
+      Sie <error type="1">besucht</error> das Museum und <error type="1">kauft</error> einen Reiseführer, aber sie <error type="1">vergessen</error> ihren Regenschirm<error type="0"> </error>.
