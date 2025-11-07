@@ -28,7 +28,7 @@ class SpanLabeler(SpanLabelerBase):
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0,
-                max_tokens=4096,
+                max_tokens=8192,
             )
             response = response.choices[0].message.content
 
