@@ -45,12 +45,20 @@ def build_prompt(method: str, dataset: str, entry: dict) -> str:
         sections.append(f"Output Format: {prompt_data['format']}")
 
     if "labels" in prompt_data:
-        sections.append(f"Labels: {', '.join(prompt_data['labels'])}")
+        sections.append(
+            f"Use only the following Labels.\nLabels: {', '.join(prompt_data['labels'])}"
+        )
     elif "label_dict" in prompt_data:
-        labels_section = "Labels:\n"
+        labels_section = "Use only the following Labels.\nLabels:\n"
         for k, v in prompt_data["label_dict"].items():
             labels_section += f"{k} : {v}\n"
         sections.append(labels_section)
+
+    if "examples" in prompt_data:
+        examples_section = "\nExamples:\n"
+        for i, example in enumerate(prompt_data["examples"], 1):
+            examples_section += f"{i}. {example}\n"
+        sections.append(examples_section)
 
     if "note" in prompt_data:
         sections.append(f"\n{prompt_data['note']}")
@@ -59,6 +67,6 @@ def build_prompt(method: str, dataset: str, entry: dict) -> str:
         sections.append(f"\n{prompt_data['instruction']}")
 
     sections.append(f"{entry['model_input']}")
-    sections.append(f"\n{prompt_data['last_line']}")
+    # sections.append(f"\n{prompt_data['last_line']}")
 
     return "\n".join(sections)
