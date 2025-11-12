@@ -15,6 +15,14 @@ prompts:
       ORG: "Organizations, companies, institutions"
       LOC: "Locations, places, geographical entities"
     note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      <entity type="PER">Lina Berg</entity> joined <entity type="ORG">AstraTech</entity> in <entity type="LOC">Stockholm</entity> after finishing her studies at <entity type="ORG">Northvale University</entity>.
+
 
   - method: xml
     dataset: error
@@ -28,6 +36,15 @@ prompts:
     task: 'Find all text spans that match the given pattern queries. Example: text <match>pattern</match> text'
     format: '<match>text</match>'
     note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      house wake think grey calm wake think ship fast wake think no air <match>light</match> music play air <match>sad</match> read dark air <match>love</match> fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
 
   - method: xml
     dataset: multigec
@@ -38,14 +55,29 @@ prompts:
       M: "Missing: part of the sentence is missing, use an empty tag"
       U: "Unnecessary: extra expression that should be deleted"
     note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework .
+
+      Output:
+      She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework .
 
   - method: xml
     dataset: wmt
-    task: 'Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors. Example: The meeting is <error severity="0">shedule</error> for <error severity="1">yesterday</error> at 3 PM in the conference room.'
-    format: '<error severity="LEVEL">text</error>'
+    task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."
+    format: '<error type="LEVEL">text</error>'
     label_dict:
       0: "Minor error (understandable, small mistake)"
       1: "Major error (changes meaning, serious mistake)"
     note: |
       IMPORTANT: You must output the entire translation text, including non-tagged parts.
       Only tag errors in the TRANSLATION. Keep correct words unchanged.
+    last_line: *output_line
+    examples:
+    - |
+      Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
+      Translation: Sie besucht das Museum und kauft einen Reiseführer, aber sie vergessen ihren Regenschirm .
+
+      Output:
+      Sie <error type="1">besucht</error> das Museum und <error type="1">kauft</error> einen Reiseführer, aber sie <error type="1">vergessen</error> ihren Regenschirm<error type="0"> </error>.

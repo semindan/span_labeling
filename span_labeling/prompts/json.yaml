@@ -10,6 +10,17 @@ prompts:
     labels: ["PERSON", "ORG", "LOC"]
     note: *note_json
     last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [
+        {"text": "Lina Berg", "label": "PER"},
+        {"text": "AstraTech", "label": "ORG"},
+        {"text": "Stockholm", "label": "LOC"},
+        {"text": "Northvale University", "label": "ORG"}
+      ]
 
   - method: json
     dataset: error
@@ -25,6 +36,17 @@ prompts:
     format: '[{"text": "exact span or pattern from input"}]'
     note: *note_json
     last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [
+        {"text": "light"},
+        {"text": "sad"},
+        {"text": "love"}
+      ]
 
   - method: json
     dataset: multigec
@@ -36,13 +58,35 @@ prompts:
       U: "Unnecessary: extra word"
     note: *note_json
     last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework .
+
+      Output:
+      [
+        {"text": "go", "label": "R"},
+        {"text": ",", "label": "U"},
+        {"text": "forget", "label": "R"}
+      ]
 
   - method: json
     dataset: wmt
     task: "Identify translation errors by comparing the translation to the source text."
-    format: '[{"text": "exact error span from translation", "severity": "0 or 1"}]'
+    format: '[{"text": "exact error span from translation", "label": "0 or 1"}]'
     label_dict:
       0: "Minor error (understandable, small mistake)"
       1: "Major error (changes meaning, serious mistake)"
     note: *note_json
     last_line: *output_line
+    examples:
+    - |
+      Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
+      Translation: Sie besucht das Museum und kauft einen Reiseführer, aber sie vergessen ihren Regenschirm .
+
+      Output:
+      [
+        {"text": "besucht", "label": 1},
+        {"text": "kauft", "label": 1},
+        {"text": "vergessen", "label": 1},
+        {"text": " ", "label": 0}
+      ]
