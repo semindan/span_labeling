@@ -56,6 +56,8 @@ class SubstringCopyLogitsProcessor:
         constrained_key: str,
         quote_token_ids: Optional[list[int]] = None,
         max_substring_len: int = 200,
+        allowed_labels: Optional[list[str]] = None,
+        label_key: str = "label",
     ) -> None:
         self.input_text = input_text
         self.id2piece = id2piece
@@ -86,6 +88,19 @@ class SubstringCopyLogitsProcessor:
 
         # Pre-filter tokens by whether they could ever match input_text
         self._prefilter_tokens()
+
+        # Label constraint support
+        self.allowed_labels = allowed_labels
+        self.label_key = label_key
+        self.label_prefix_end_pos: Optional[int] = None
+        self.label_value_so_far = ""
+        self._last_logged_label_len = 0
+        self.label_value_prefix_re = re.compile(rf'"{re.escape(label_key)}"\s*:\s*"')
+        self.initial_label_after_quote = ""
+        self._last_label_prefix_match_end_char = 0
+        # Pre-filter tokens for label matching if labels are provided
+        if self.allowed_labels:
+            self._prefilter_label_tokens()
 
     def _build_substring_index(self):
         """Pre-compute all substrings and their starting positions.
@@ -119,6 +134,29 @@ class SubstringCopyLogitsProcessor:
             if set(piece).issubset(input_chars):
                 self._potentially_valid_tokens.add(token_id)
 
+    def _prefilter_label_tokens(self):
+        """Build a set of token IDs that could match allowed labels.
+
+        This allows quick rejection of tokens that can never match any label.
+        """
+        if not self.allowed_labels:
+            self._potentially_valid_label_tokens = set()
+            return
+
+        # Collect all characters used in any label
+        label_chars = set()
+        for label in self.allowed_labels:
+            label_chars.update(label)
+
+        self._potentially_valid_label_tokens = set()
+
+        for token_id, piece in self.id2piece.items():
+            if not piece:
+                continue
+            # A token is potentially valid if all its characters appear in some label
+            if set(piece).issubset(label_chars):
+                self._potentially_valid_label_tokens.add(token_id)
+
     def _get_valid_starts(self, prefix: str) -> list[int]:
         """Get all starting positions where prefix appears in input_text.
 
@@ -133,6 +171,7 @@ class SubstringCopyLogitsProcessor:
         output_ids: list[int],
         logits: torch.Tensor,
     ) -> torch.Tensor:
+        # Handle text field constraint
         if self.prefix_end_pos is None:
             # Use regex detection to find the constrained JSON key value opening
             decoded_tail = "".join(self.id2piece.get(tid, "") for tid in output_ids)
@@ -152,6 +191,84 @@ class SubstringCopyLogitsProcessor:
                     file=sys.stderr,
                 )
 
+        # Handle label field constraint
+        if self.allowed_labels and self.label_prefix_end_pos is None:
+            decoded_tail = "".join(self.id2piece.get(tid, "") for tid in output_ids)
+            last_match = None
+            for mm in self.label_value_prefix_re.finditer(decoded_tail):
+                last_match = mm
+            if last_match and last_match.end() > self._last_label_prefix_match_end_char:
+                self.label_prefix_end_pos = len(output_ids)
+                self.initial_label_after_quote = decoded_tail[last_match.end() :]
+                self._last_logged_label_len = 0
+                self._last_label_prefix_match_end_char = last_match.end()
+                print(
+                    f"[LogitsProcessor] Detected label prefix for span #{self.span_index} at position {self.label_prefix_end_pos}; prefilled label chars={len(self.initial_label_after_quote)}",
+                    file=sys.stderr,
+                )
+
+        # Apply label constraint if active
+        if self.label_prefix_end_pos is not None:
+            pieces = [
+                self.id2piece.get(tid, "") for tid in output_ids[self.label_prefix_end_pos :]
+            ]
+            self.label_value_so_far = self.initial_label_after_quote + "".join(pieces)
+
+            # Log newly generated tokens inside the label value
+            current_len = len(output_ids) - self.label_prefix_end_pos
+            if current_len > self._last_logged_label_len:
+                start = self.label_prefix_end_pos + self._last_logged_label_len
+                new_ids = output_ids[start : self.label_prefix_end_pos + current_len]
+                for i, tid in enumerate(new_ids, 1):
+                    piece = self.id2piece.get(tid, "")
+                    print(
+                        f"[LogitsProcessor] Emitted label token {i + self._last_logged_label_len}: id={tid}, piece={piece!r}",
+                        file=sys.stderr,
+                    )
+                self._last_logged_label_len = current_len
+
+            # Compute allowed next token IDs for labels
+            label_allowed_ids: list[int] = []
+            vt = self.label_value_so_far
+
+            # Check which tokens could extend the current label prefix to match an allowed label
+            for token_id in self._potentially_valid_label_tokens:
+                piece = self.id2piece.get(token_id, "")
+                if not piece:
+                    continue
+
+                candidate = vt + piece
+                # Check if this candidate is a prefix of any allowed label
+                for label in self.allowed_labels:
+                    if label.startswith(candidate):
+                        label_allowed_ids.append(token_id)
+                        break
+
+            # Apply label constraints
+            if label_allowed_ids:
+                allowed_ids = set(label_allowed_ids)
+                allowed_ids.update(self.quote_token_ids)
+                kept = {tid: logits[tid].item() for tid in allowed_ids}
+                logits[:] = float("-inf")
+                for tid, val in kept.items():
+                    logits[tid] = val
+
+            # Check if the most recently emitted token contains a closing quote
+            if current_len > self._last_logged_label_len:
+                new_pieces = pieces[self._last_logged_label_len :]
+                if any('"' in p for p in new_pieces):
+                    print(
+                        f"[LogitsProcessor] Detected closing quote for label in span #{self.span_index}. Lifting label constraints.",
+                        file=sys.stderr,
+                    )
+                    self.label_prefix_end_pos = None
+                    self.label_value_so_far = ""
+                    self.initial_label_after_quote = ""
+                    self._last_logged_label_len = 0
+
+            return logits
+
+        # Apply text constraint if active
         if self.prefix_end_pos is not None:
             pieces = [
                 self.id2piece.get(tid, "") for tid in output_ids[self.prefix_end_pos :]
@@ -282,6 +399,14 @@ class SubstringCopyLogitsProcessorAdapter(AdapterLogitsProcessor):
             if params.extra_args
             else 200
         )
+        allowed_labels: Optional[list[str]] = (
+            params.extra_args.get("allowed_labels") if params.extra_args else None
+        )
+        label_key: str = (
+            params.extra_args.get("label_key", "label")
+            if params.extra_args
+            else "label"
+        )
         if not input_text or not id2piece or not constrained_key:
             return None
         return SubstringCopyLogitsProcessor(
@@ -290,6 +415,8 @@ class SubstringCopyLogitsProcessorAdapter(AdapterLogitsProcessor):
             constrained_key=constrained_key,
             quote_token_ids=quote_token_ids,
             max_substring_len=max_substring_len,
+            allowed_labels=allowed_labels,
+            label_key=label_key,
         )
 
 
@@ -342,6 +469,8 @@ class ModelState:
         dataset: str,
         system_message: str,
         sampling_params_dict: dict,
+        allowed_labels: Optional[list[str]] = None,
+        label_key: str = "label",
     ) -> dict:
         """Run inference with constrained decoding on the input prompt."""
         # Use the pre-formatted prompt from the client (already built via build_prompt)
@@ -364,6 +493,8 @@ class ModelState:
                 "id2piece": self.id2piece,
                 "quote_token_ids": list(self.quote_token_ids),
                 "constrained_key": constrained_key,
+                "allowed_labels": allowed_labels,
+                "label_key": label_key,
             }
         sampling_params = SamplingParams(**sp_kwargs)
 
@@ -414,6 +545,8 @@ class Handler(BaseHTTPRequestHandler):
                 if self.server_mode == "constrained"
                 else None
             )
+            allowed_labels = payload.get("allowed_labels")
+            label_key = payload.get("label_key", "label")
 
             result = self.model_state.detect_spans(
                 input_text=input_text,
@@ -423,6 +556,8 @@ class Handler(BaseHTTPRequestHandler):
                 constrained_key=constrained_key,
                 system_message=system_message,
                 sampling_params_dict=sampling_params_dict,
+                allowed_labels=allowed_labels,
+                label_key=label_key,
             )
             data = json.dumps(result).encode("utf-8")
             self.send_response(200)

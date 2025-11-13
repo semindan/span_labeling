@@ -39,8 +39,7 @@ class ConstrainedJSONSpanLabeler(JSONSpanLabeler):
             "top_k": -1,  # Disable top-k filtering (consider all tokens)
             "top_p": 1.0,  # Disable top-p/nucleus sampling
             "min_p": 0.0,  # Disable min-p filtering
-            # Repetition/frequency penalties - disabled for determinism
-            "repetition_penalty": 1.1,  # No repetition penalty (matches Ollama repeat_penalty)
+            "repetition_penalty": 1.0,  # No repetition penalty
             "presence_penalty": 0.0,  # No presence penalty
             "frequency_penalty": 0.0,  # No frequency penalty
         }

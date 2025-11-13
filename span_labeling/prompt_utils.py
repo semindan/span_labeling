@@ -79,7 +79,9 @@ def build_json_schema(method: str, dataset: str) -> dict:
     - Always requires the "text" field (string)
     - Adds additional fields present in the format example object for the dataset
       (e.g., label, correction). "label" accepts string or number to support
-      datasets like WMT with numeric labels.
+      datasets like WMT with numeric labels. If the prompt config provides a
+      fixed set of labels (via "labels" or "label_dict"), constrain the
+      "label" field with an enum of allowed values and a precise JSON type.
     - Disallows additional properties to keep outputs clean and predictable.
     """
     prompt_cfg = get_prompt_config(method, dataset) or {}
@@ -87,6 +89,28 @@ def build_json_schema(method: str, dataset: str) -> dict:
 
     properties: dict[str, dict] = {"text": {"type": "string"}}
     required = ["text"]
+
+    # Determine label value constraints from prompt config, if available
+    label_enum = None
+    label_type: str | list[str] | None = None
+    if "labels" in prompt_cfg and isinstance(prompt_cfg["labels"], list):
+        # Simple list of string labels
+        label_enum = list(prompt_cfg["labels"])  # keep order
+        label_type = "string"
+    elif "label_dict" in prompt_cfg and isinstance(prompt_cfg["label_dict"], dict):
+        # Keys can be strings (e.g., R/M/U) or numbers (e.g., 0/1)
+        keys = list(prompt_cfg["label_dict"].keys())
+        # Preserve original types from YAML (ints remain ints)
+        all_ints = all(isinstance(k, int) for k in keys)
+        all_strs = all(isinstance(k, str) for k in keys)
+        if all_ints:
+            label_type = "integer"
+        elif all_strs:
+            label_type = "string"
+        else:
+            # Mixed types (unlikely) — allow both
+            label_type = ["string", "integer"]
+        label_enum = keys
 
     if fmt:
         try:
@@ -100,7 +124,12 @@ def build_json_schema(method: str, dataset: str) -> dict:
                     if k == "text":
                         continue
                     if k == "label":
-                        properties[k] = {"type": ["string", "number"]}
+                        # Apply enum/type constraints if we have them, else keep broad type
+                        if label_enum is not None and label_type is not None:
+                            properties[k] = {"type": label_type, "enum": label_enum}
+                        else:
+                            # Default: accept string or number (to cover WMT and others)
+                            properties[k] = {"type": ["string", "number"]}
                     else:
                         properties[k] = {"type": "string"}
         except Exception:

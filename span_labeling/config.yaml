@@ -13,7 +13,7 @@ llm:
     model: "microsoft/Phi-4-mini-instruct"
 
 evaluation:
-  hard_matching: false  # If true, labels must match exactly for overlap F1
+  hard_matching: true  # If true, labels must match exactly for overlap F1
 
 methods:
   constrained_xml:
