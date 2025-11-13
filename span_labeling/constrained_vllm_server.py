@@ -42,6 +42,11 @@ class SubstringCopyLogitsProcessor:
     At each decode step, allow any token whose decoded piece keeps the value
     a prefix of at least one substring of the original input sentence.
     Also allow the closing quote to end the value and lift constraints.
+
+    Performance optimizations:
+    - Pre-computes all substrings and builds an index
+    - Caches valid starting positions for each prefix
+    - Avoids repeated string searches and concatenations
     """
 
     def __init__(
@@ -50,6 +55,7 @@ class SubstringCopyLogitsProcessor:
         id2piece: dict[int, str],
         constrained_key: str,
         quote_token_ids: Optional[list[int]] = None,
+        max_substring_len: int = 200,
     ) -> None:
         self.input_text = input_text
         self.id2piece = id2piece
@@ -66,6 +72,61 @@ class SubstringCopyLogitsProcessor:
         self.initial_value_after_quote = ""
         # Track the last character offset of a detected prefix to avoid re-triggering
         self._last_prefix_match_end_char = 0
+
+        # Configuration for memory/speed tradeoff
+        self.max_substring_len = max_substring_len
+
+        # Performance optimization: build substring index upfront
+        # Maps each substring to its starting positions in input_text
+        self._substring_index: dict[str, list[int]] = {}
+        self._build_substring_index()
+
+        # Cache for valid starting positions (resets each span)
+        self._valid_starts: list[int] = []
+
+        # Pre-filter tokens by whether they could ever match input_text
+        self._prefilter_tokens()
+
+    def _build_substring_index(self):
+        """Pre-compute all substrings and their starting positions.
+
+        For long texts, this uses O(n^2) memory but makes lookups O(1).
+        For very long texts (>10k chars), we limit max substring length.
+        """
+        max_len = min(len(self.input_text), self.max_substring_len)
+
+        for start in range(len(self.input_text)):
+            for end in range(
+                start + 1, min(start + max_len + 1, len(self.input_text) + 1)
+            ):
+                substring = self.input_text[start:end]
+                if substring not in self._substring_index:
+                    self._substring_index[substring] = []
+                self._substring_index[substring].append(start)
+
+    def _prefilter_tokens(self):
+        """Build a set of token IDs that contain characters present in input_text.
+
+        This allows quick rejection of tokens that can never match.
+        """
+        input_chars = set(self.input_text)
+        self._potentially_valid_tokens = set()
+
+        for token_id, piece in self.id2piece.items():
+            if not piece:
+                continue
+            # A token is potentially valid if all its characters appear in input
+            if set(piece).issubset(input_chars):
+                self._potentially_valid_tokens.add(token_id)
+
+    def _get_valid_starts(self, prefix: str) -> list[int]:
+        """Get all starting positions where prefix appears in input_text.
+
+        Uses pre-computed index for O(1) lookup instead of O(n) search.
+        """
+        if prefix == "":
+            return list(range(len(self.input_text)))
+        return self._substring_index.get(prefix, [])
 
     def __call__(
         self,
@@ -84,6 +145,8 @@ class SubstringCopyLogitsProcessor:
                 self.initial_value_after_quote = decoded_tail[last_match.end() :]
                 self._last_logged_len = 0
                 self._last_prefix_match_end_char = last_match.end()
+                # Reset valid starts for new span
+                self._valid_starts = list(range(len(self.input_text)))
                 print(
                     f"[LogitsProcessor] Detected value prefix for span #{self.span_index} at position {self.prefix_end_pos}; prefilled value chars={len(self.initial_value_after_quote)}",
                     file=sys.stderr,
@@ -112,27 +175,46 @@ class SubstringCopyLogitsProcessor:
             # Compute allowed next token IDs
             prefix_allowed_ids: list[int] = []
             vt = self.value_so_far
-            # Find starts where vt is a prefix of input_text starting at that index
-            starts: list[int] = []
-            if vt == "":
-                starts = list(range(len(self.input_text)))
-            else:
-                start = 0
-                while True:
-                    idx = self.input_text.find(vt, start)
-                    if idx == -1:
-                        break
-                    starts.append(idx)
-                    start = idx + 1
 
-            for token_id, piece in self.id2piece.items():
+            # Get valid starting positions using pre-computed index
+            if vt == "":
+                starts = self._valid_starts
+            else:
+                starts = self._get_valid_starts(vt)
+
+            # Early exit if no valid continuations exist
+            if not starts:
+                # No valid prefixes, but don't mask to avoid FSM dead-ends
+                return logits
+
+            # Optimization: for each valid start position, pre-compute what the next
+            # character(s) could be, then filter tokens by that
+            next_chars = set()
+            for s in starts:
+                end_pos = s + len(vt)
+                if end_pos < len(self.input_text):
+                    # Collect next few characters for faster filtering
+                    next_chars.add(self.input_text[end_pos : end_pos + 1])
+
+            # Only check tokens that could start with one of the valid next characters
+            for token_id in self._potentially_valid_tokens:
+                piece = self.id2piece.get(token_id, "")
                 if not piece:
                     continue
+
+                # Quick rejection: if token doesn't start with any valid next char, skip
+                if next_chars and piece[0] not in next_chars:
+                    continue
+
+                # Check if this token extends any valid start position
                 candidate = vt + piece
-                for s in starts:
-                    if self.input_text.startswith(candidate, s):
-                        prefix_allowed_ids.append(token_id)
-                        break
+                # Use index lookup instead of startswith check on full string
+                if candidate in self._substring_index:
+                    # Verify at least one start position matches
+                    for cand_start in self._substring_index[candidate]:
+                        if cand_start in starts:
+                            prefix_allowed_ids.append(token_id)
+                            break
 
             # If we have prefix-viable tokens, allow them and also allow quote tokens as closers.
             # If none are prefix-viable, avoid masking entirely to prevent grammar FSM dead-ends.
@@ -144,17 +226,26 @@ class SubstringCopyLogitsProcessor:
                 for tid, val in kept.items():
                     logits[tid] = val
 
-            # If any emitted piece contains a quote at this point, treat the value as closed
-            if any('"' in p for p in pieces):
-                print(
-                    f"[LogitsProcessor] Detected closing quote (any-quote token) for span #{self.span_index}. Lifting constraints.",
-                    file=sys.stderr,
-                )
-                self.prefix_end_pos = None
-                self.value_so_far = ""
-                self.initial_value_after_quote = ""
-                self._last_logged_len = 0
-                self.span_index += 1
+            # Update valid starts for next iteration (incremental filtering)
+            # Only keep starts that are still valid with current prefix
+            if starts and vt:
+                self._valid_starts = starts
+
+            # Check if the most recently emitted token contains a closing quote
+            # Only check new tokens since last call (not all pieces from the beginning)
+            if current_len > self._last_logged_len:
+                new_pieces = pieces[self._last_logged_len :]
+                if any('"' in p for p in new_pieces):
+                    print(
+                        f"[LogitsProcessor] Detected closing quote (any-quote token) for span #{self.span_index}. Lifting constraints.",
+                        file=sys.stderr,
+                    )
+                    self.prefix_end_pos = None
+                    self.value_so_far = ""
+                    self.initial_value_after_quote = ""
+                    self._last_logged_len = 0
+                    self._valid_starts = []
+                    self.span_index += 1
 
         return logits
 
@@ -186,6 +277,11 @@ class SubstringCopyLogitsProcessorAdapter(AdapterLogitsProcessor):
         constrained_key: Optional[str] = (
             params.extra_args.get("constrained_key") if params.extra_args else None
         )
+        max_substring_len: int = (
+            params.extra_args.get("max_substring_len", 200)
+            if params.extra_args
+            else 200
+        )
         if not input_text or not id2piece or not constrained_key:
             return None
         return SubstringCopyLogitsProcessor(
@@ -193,6 +289,7 @@ class SubstringCopyLogitsProcessorAdapter(AdapterLogitsProcessor):
             id2piece=id2piece,
             constrained_key=constrained_key,
             quote_token_ids=quote_token_ids,
+            max_substring_len=max_substring_len,
         )
 
 

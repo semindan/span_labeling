@@ -19,7 +19,7 @@ from span_labeling.metrics import evaluate
 
 methods = {
     # All constructors now default to the central config for model/base_url
-    # "JSON": JSONSpanLabeler(),
+    "JSON": JSONSpanLabeler(),
     "Constrained-JSON": ConstrainedJSONSpanLabeler(),
     # "XML": XMLSpanLabeler(),
     # 'Index': IndexSpanLabeler(model_name=None),  # uses config via SpanLabeler
@@ -31,7 +31,7 @@ tasks = {
     "ner": NerDataset(path="data/custom/ner_en_test.json"),
     "multigec": MultigecDataset(path="data/custom/multigec.json"),
     # 'ner': NerDataset(path="data/custom/ner_test.json"),
-    # "synthetic": SyntheticDataset(path="data/custom/synthetic_test.json"),
+    "synthetic": SyntheticDataset(path="data/custom/synthetic_test.json"),
     # "wmt": WMTDataset(
     # path="data/custom/wmt-cs.json",
     # ),
