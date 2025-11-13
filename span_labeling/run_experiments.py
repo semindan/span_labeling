@@ -19,8 +19,8 @@ from span_labeling.metrics import evaluate
 
 methods = {
     # All constructors now default to the central config for model/base_url
-    "JSON": JSONSpanLabeler(),
-    "Constrained-JSON": ConstrainedJSONSpanLabeler(),
+    # "JSON": JSONSpanLabeler(),
+    "Constrained-JSON": ConstrainedJSONSpanLabeler(api_url="http://tdll-8gpu2:5456"),
     # "XML": XMLSpanLabeler(),
     # 'Index': IndexSpanLabeler(model_name=None),  # uses config via SpanLabeler
     # 'Occurrence': JSONOccurrenceSpanLabeler(),

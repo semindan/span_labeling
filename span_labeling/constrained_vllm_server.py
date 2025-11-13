@@ -296,24 +296,16 @@ class SubstringCopyLogitsProcessorAdapter(AdapterLogitsProcessor):
 class ModelState:
     """Encapsulates vLLM model and tokenizer state."""
 
-    def __init__(
-        self,
-        mode: str,
-        model: str,
-        temperature: float,
-        max_tokens: int,
-    ):
+    def __init__(self, mode: str, model: str):
         logits = [SubstringCopyLogitsProcessorAdapter] if mode == "constrained" else []
         self.llm = LLM(
             model=model,
-            max_model_len=2048,
+            max_model_len=8192,
             logits_processors=logits,
         )
         self.tokenizer = self.llm.get_tokenizer()
         self.id2piece: dict[int, str] = {}
         self.quote_token_ids: set[int] = set()
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         self._build_token_maps()
 
     def _build_token_maps(self):
@@ -348,6 +340,8 @@ class ModelState:
         mode: str,
         constrained_key: str,
         dataset: str,
+        system_message: str,
+        sampling_params_dict: dict,
     ) -> dict:
         """Run inference with constrained decoding on the input prompt."""
         # Use the pre-formatted prompt from the client (already built via build_prompt)
@@ -360,10 +354,8 @@ class ModelState:
         if mode != "unconstrained":
             structured_outputs = StructuredOutputsParams(json=json_schema)
 
-        sp_kwargs = {
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-        }
+        # Use sampling parameters provided by client
+        sp_kwargs = sampling_params_dict.copy()
         if structured_outputs is not None:
             sp_kwargs["structured_outputs"] = structured_outputs
         if mode == "constrained":
@@ -375,9 +367,9 @@ class ModelState:
             }
         sampling_params = SamplingParams(**sp_kwargs)
 
-        # The prompt is pre-formatted by the client and should include system message if needed
-        # Pass it directly as a user message
+        # Use system message provided by client
         messages = [
+            {"role": "system", "content": system_message},
             {"role": "user", "content": prompt},
         ]
 
@@ -413,6 +405,10 @@ class Handler(BaseHTTPRequestHandler):
             prompt = payload["prompt"]
             input_text = payload["input_text"]
             dataset = payload["dataset"]
+            system_message = payload.get(
+                "system_message", "You are a helpful assistant."
+            )
+            sampling_params_dict = payload.get("sampling_params", {})
             constrained_key = (
                 payload.get("constrained_key")
                 if self.server_mode == "constrained"
@@ -425,6 +421,8 @@ class Handler(BaseHTTPRequestHandler):
                 mode=self.server_mode,
                 dataset=dataset,
                 constrained_key=constrained_key,
+                system_message=system_message,
+                sampling_params_dict=sampling_params_dict,
             )
             data = json.dumps(result).encode("utf-8")
             self.send_response(200)
@@ -446,28 +444,14 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
 
 
-def run(
-    host: str,
-    port: int,
-    mode: str,
-    model: str,
-    temperature: float,
-    max_tokens: int,
-):
+def run(host: str, port: int, mode: str, model: str):
     # Initialize model state once at server startup
-    model_state = ModelState(
-        mode=mode,
-        model=model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    model_state = ModelState(mode=mode, model=model)
     # Bind the model state and mode to the handler class
     Handler.model_state = model_state
     Handler.server_mode = mode
     server = ThreadingHTTPServer((host, port), Handler)
-    print(
-        f"[Server] Listening on http://{host}:{port} (mode={mode}, model={model}, temp={temperature}, max_tokens={max_tokens})"
-    )
+    print(f"[Server] Listening on http://{host}:{port} (mode={mode}, model={model})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -490,24 +474,5 @@ if __name__ == "__main__":
         default="microsoft/Phi-4-mini-instruct",
         help="Model name or path to load",
     )
-    parser.add_argument(
-        "--temperature",
-        type=float,
-        default=0.0,
-        help="Sampling temperature",
-    )
-    parser.add_argument(
-        "--max-tokens",
-        type=int,
-        default=1024,
-        help="Maximum tokens to generate",
-    )
     args = parser.parse_args()
-    run(
-        host=args.host,
-        port=args.port,
-        mode=args.mode,
-        model=args.model,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens,
-    )
+    run(host=args.host, port=args.port, mode=args.mode, model=args.model)

@@ -1,9 +1,15 @@
 from abc import abstractmethod
-from openai import OpenAI
-from typing import List, Dict
+from typing import Dict, List
+
+import requests
+
 from span_labeling.base import SpanLabelerBase
+from span_labeling.config import (
+    get_ollama_base_url,
+    get_ollama_model,
+    get_system_message,
+)
 from span_labeling.prompt_utils import build_prompt
-from span_labeling.config import get_ollama_base_url, get_ollama_model, get_system_message
 
 
 class SpanLabeler(SpanLabelerBase):
@@ -12,32 +18,58 @@ class SpanLabeler(SpanLabelerBase):
     def __init__(self, model_name: str | None = None):
         # Default to central config if not provided
         self.model_name = model_name or get_ollama_model()
-        self.client = OpenAI(
-            base_url=get_ollama_base_url(),
-            api_key="ollama",
-        )
+        # Remove /v1 suffix if present (OpenAI compatibility endpoint)
+        self.base_url = get_ollama_base_url().replace("/v1", "")
 
     def call_api(self, prompt: str) -> str:
-        """Call Ollama via OpenAI client"""
+        """Call Ollama via native API"""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
+            # Native Ollama API format with explicit deterministic parameters
+            payload = {
+                "model": self.model_name,
+                "messages": [
                     {
                         "role": "system",
                         "content": get_system_message(),
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0,
-                max_tokens=8192,
+                "stream": False,
+                "options": {
+                    # Core sampling parameters - deterministic greedy decoding
+                    "temperature": 0.0,
+                    "num_predict": 1024,  # max_tokens equivalent in Ollama
+                    "top_k": -1,  # Disable top-k filtering (consider all tokens)
+                    "top_p": 1.0,  # Disable top-p/nucleus sampling
+                    "min_p": 0.0,  # Disable min-p filtering
+                    # Repetition/frequency penalties - disabled for determinism
+                    "repeat_last_n": 0,  # Context for repetition penalty (Ollama default)
+                    "repeat_penalty": 1.0,  # No repetition penalty
+                    "presence_penalty": 0.0,  # No presence penalty
+                    "frequency_penalty": 0.0,  # No frequency penalty
+                    # Mirostat - disabled
+                    "mirostat": 0,  # Disable mirostat
+                    "mirostat_tau": 5.0,  # Not used when mirostat=0
+                    "mirostat_eta": 0.1,  # Not used when mirostat=0
+                    # Other parameters
+                    "seed": 42,  # Set seed for reproducibility
+                    "tfs_z": 1.0,  # Disable tail-free sampling
+                    "typical_p": 1.0,  # Disable locally typical sampling
+                },
+            }
+
+            response = requests.post(
+                f"{self.base_url}/api/chat", json=payload, timeout=300
             )
-            response = response.choices[0].message.content
+            response.raise_for_status()
 
-            if "<think>" in response and "</think>" in response:
-                response = response.split("</think>")[-1]
+            result = response.json()
+            content = result.get("message", {}).get("content", "")
 
-            return response
+            if "<think>" in content and "</think>" in content:
+                content = content.split("</think>")[-1]
+
+            return content
 
         except Exception as e:
             print(f"Error: {e}")
