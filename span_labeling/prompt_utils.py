@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -70,3 +71,49 @@ def build_prompt(method: str, dataset: str, entry: dict) -> str:
     # sections.append(f"\n{prompt_data['last_line']}")
 
     return "\n".join(sections)
+
+
+def build_json_schema(method: str, dataset: str) -> dict:
+    """Build a JSON Schema for structured outputs from the YAML prompt format.
+
+    - Always requires the "text" field (string)
+    - Adds additional fields present in the format example object for the dataset
+      (e.g., label, correction). "label" accepts string or number to support
+      datasets like WMT with numeric labels.
+    - Disallows additional properties to keep outputs clean and predictable.
+    """
+    prompt_cfg = get_prompt_config(method, dataset) or {}
+    fmt = prompt_cfg.get("format", "")
+
+    properties: dict[str, dict] = {"text": {"type": "string"}}
+    required = ["text"]
+
+    if fmt:
+        try:
+            fmt_json = json.loads(fmt)
+            if (
+                isinstance(fmt_json, list)
+                and fmt_json
+                and isinstance(fmt_json[0], dict)
+            ):
+                for k in fmt_json[0].keys():
+                    if k == "text":
+                        continue
+                    if k == "label":
+                        properties[k] = {"type": ["string", "number"]}
+                    else:
+                        properties[k] = {"type": "string"}
+        except Exception:
+            # If the format isn't valid JSON, fall back to just {text}
+            pass
+
+    return {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": properties,
+            "required": required,
+            "additionalProperties": False,
+        },
+    }

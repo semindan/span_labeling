@@ -56,6 +56,18 @@ def get_hf_model() -> str:
     )
 
 
+def get_vllm_api_url() -> str:
+    cfg = load_config()
+    return cfg.get("llm", {}).get("vllm", {}).get("api_url", "http://localhost:8000")
+
+
+def get_vllm_model() -> str:
+    cfg = load_config()
+    return (
+        cfg.get("llm", {}).get("vllm", {}).get("model", "microsoft/Phi-4-mini-instruct")
+    )
+
+
 def get_system_message() -> str:
     cfg = load_config()
     return cfg.get("llm", {}).get("system_message", "You are a helpful assistant.")

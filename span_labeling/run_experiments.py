@@ -10,7 +10,7 @@ from span_labeling.dataset import (
     SyntheticDataset,
     WMTDataset,
 )
-from span_labeling.methods.constrained_xml_method import ConstrainedXMLSpanLabeler
+from span_labeling.methods.constrained_json_method import ConstrainedJSONSpanLabeler
 from span_labeling.methods.index_method import IndexSpanLabeler
 from span_labeling.methods.json_method import JSONSpanLabeler
 from span_labeling.methods.occurrence_method import JSONOccurrenceSpanLabeler
@@ -19,9 +19,9 @@ from span_labeling.metrics import evaluate
 
 methods = {
     # All constructors now default to the central config for model/base_url
-    # 'JSON': JSONSpanLabeler(),
+    # "JSON": JSONSpanLabeler(),
+    "Constrained-JSON": ConstrainedJSONSpanLabeler(),
     # "XML": XMLSpanLabeler(),
-    "Constrained-XML": ConstrainedXMLSpanLabeler(),
     # 'Index': IndexSpanLabeler(model_name=None),  # uses config via SpanLabeler
     # 'Occurrence': JSONOccurrenceSpanLabeler(),
 }
@@ -31,8 +31,10 @@ tasks = {
     "ner": NerDataset(path="data/custom/ner_en_test.json"),
     "multigec": MultigecDataset(path="data/custom/multigec.json"),
     # 'ner': NerDataset(path="data/custom/ner_test.json"),
-    "synthetic": SyntheticDataset(path="data/custom/synthetic_test.json"),
-    # 'wmt': WMTDataset(path="data/custom/wmt-cs.json",)
+    # "synthetic": SyntheticDataset(path="data/custom/synthetic_test.json"),
+    # "wmt": WMTDataset(
+    # path="data/custom/wmt-cs.json",
+    # ),
 }
 
 all_results = {}

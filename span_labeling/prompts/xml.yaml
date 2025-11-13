@@ -15,7 +15,6 @@ prompts:
       ORG: "Organizations, companies, institutions"
       LOC: "Locations, places, geographical entities"
     note: *note_xml
-    last_line: *output_line
     examples:
     - |
       Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
@@ -36,7 +35,6 @@ prompts:
     task: 'Find all text spans that match the given pattern queries. Example: text <match>pattern</match> text'
     format: '<match>text</match>'
     note: *note_xml
-    last_line: *output_line
     examples:
     - |
       Task: Find all sequences matching '\\w+' that are preceded by 'air'.
@@ -55,7 +53,6 @@ prompts:
       M: "Missing: part of the sentence is missing, use an empty tag"
       U: "Unnecessary: extra expression that should be deleted"
     note: *note_xml
-    last_line: *output_line
     examples:
     - |
       Text: She go to school every day , but yesterday she forget her homework .
@@ -73,7 +70,6 @@ prompts:
     note: |
       IMPORTANT: You must output the entire translation text, including non-tagged parts.
       Only tag errors in the TRANSLATION. Keep correct words unchanged.
-    last_line: *output_line
     examples:
     - |
       Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
