@@ -25,6 +25,15 @@ class Dataset(DatasetBase):
         with open(self.path) as f:
             return json.load(f)
 
+    def _check_overlapping(self, spans):
+        if len(spans) <= 1:
+            return False
+        sorted_spans = sorted(spans, key=lambda x: x["start"])
+        for i in range(len(sorted_spans) - 1):
+            if sorted_spans[i]["end"] > sorted_spans[i + 1]["start"]:
+                return True
+        return False
+
     def __getitem__(self, idx):
         return self._preprocess_item(self.data[idx])
 
@@ -118,7 +127,6 @@ class WMTDataset(Dataset):
 
     def _preprocess_item(self, entry):
         entry["key"] = self.key
-        # entry["instruction"] = f"Task: {entry.get('instruction', self.instruction)}"
         entry["model_input"] = (
             f'Source: "{entry["source"]}"\nTranslation: "{entry["text"]}"'
         )
@@ -130,7 +138,7 @@ class WMTDataset(Dataset):
                     "text": span["text"],
                     "start": span["start"],
                     "end": span["end"],
-                    "label": span.get("label", ""),
+                    "label": str(span["label"]),
                 }
             )
         entry["spans"] = spans
