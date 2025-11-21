@@ -16,13 +16,14 @@ def run(
 ):
     MethodClass = MethodRegistry.get(method_name)
     DatasetClass = DatasetRegistry.get(dataset_name)
+    model_clean = model_name.replace(":", "_").replace(".", "_").replace("/", "__")
 
     if not output_path:
         dataset_file_name = Path(dataset_path).stem
         comment = "" if not comment else f"{comment}_"
         output_path = (
             Path(PROJECT_ROOT)
-            / f"results/{comment}{model_name}_{method_name}_{dataset_file_name}_results.json"
+            / f"results/{comment}{model_clean}_{method_name}_{dataset_file_name}_results.json"
         )
 
     method = MethodClass(model_name)
