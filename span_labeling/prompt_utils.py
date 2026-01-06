@@ -31,7 +31,9 @@ def get_prompt_config(method: str, dataset: str):
     return PROMPT_REGISTRY.get(method, {}).get(dataset, {})
 
 
-def build_prompt(method: str, dataset: str, entry: dict) -> str:
+def build_prompt(
+    method: str, dataset: str, entry: dict, note_extra: str = "", example_n: int = 100
+) -> str:
     prompt_data = get_prompt_config(method, dataset)
     if not prompt_data:
         raise ValueError(f"No prompt found for {method}/{dataset}")
@@ -57,16 +59,19 @@ def build_prompt(method: str, dataset: str, entry: dict) -> str:
     if "examples" in prompt_data:
         examples_section = "\nExamples:\n"
         for i, example in enumerate(prompt_data["examples"], 1):
+            if i > example_n:
+                break
             examples_section += f"{i}. {example}\n"
         sections.append(examples_section)
 
     if "note" in prompt_data:
         sections.append(f"\n{prompt_data['note']}")
+    if note_extra:
+        sections.append(f"\n{note_extra}")
 
     if "instruction" in prompt_data:
         sections.append(f"\n{prompt_data['instruction']}")
 
     sections.append(f"{entry['model_input']}")
-    # sections.append(f"\n{prompt_data['last_line']}")
 
     return "\n".join(sections)
