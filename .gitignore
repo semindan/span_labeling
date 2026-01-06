@@ -1,5 +1,6 @@
 .venv
 .env
 results
+torch_compile_cache
 __pycache__
 data
