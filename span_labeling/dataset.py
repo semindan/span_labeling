@@ -57,6 +57,7 @@ class SyntheticDataset(Dataset):
         entry["key"] = self.key
         # entry["instruction"] = f"Task: {entry.get('instruction', self.instruction)}"
         entry["model_input"] = f'Task: {entry["instruction"]}\nText: "{entry["text"]}"'
+        entry["allowed_labels"] = ["MATCH"]
         return entry
 
 
@@ -75,6 +76,7 @@ class ErrorDataset(Dataset):
         entry["key"] = self.key
         # entry["instruction"] = f"Task: {entry.get('instruction', self.instruction)}"
         entry["model_input"] = f'Text: "{entry["text"]}"'
+        entry["allowed_labels"] = ["GRAMMAR", "SPELLING", "PUNCTUATION"]
         return entry
 
 
@@ -93,6 +95,7 @@ class MultigecDataset(Dataset):
         entry["key"] = self.key
         # entry["instruction"] = f"Task: {entry.get('instruction', self.instruction)}"
         entry["model_input"] = f'Text: "{entry["text"]}"'
+        entry["allowed_labels"] = ["R", "U", "M"]
         return entry
 
 
@@ -111,6 +114,7 @@ class NerDataset(Dataset):
         entry["key"] = self.key
         # entry["instruction"] = f"Task: {entry.get('instruction', self.instruction)}"
         entry["model_input"] = f'Text: "{entry["text"]}"'
+        entry["allowed_labels"] = ["PER", "ORG", "LOC"]
         return entry
 
 
@@ -118,7 +122,7 @@ class NerDataset(Dataset):
 class WMTDataset(Dataset):
     key: str = "wmt"
     name: str = "WMT dataset"
-    description: str = "WMT translation quality estimation"
+    description: str = "WMT translation error detection"
     instruction: str = "Identify translation errors by comparing the translation to the source text. Error severity: 0=minor, 1=major."
 
     def load(self):
@@ -142,6 +146,7 @@ class WMTDataset(Dataset):
                 }
             )
         entry["spans"] = spans
+        entry["allowed_labels"] = ["MINOR", "MAJOR"]
         return entry
 
 
