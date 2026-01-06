@@ -1,75 +1,246 @@
-# methods/json_occurrence_method.py
-import textwrap
+import json
+import re
+from typing import List, Optional
+from pydantic import BaseModel, RootModel
 from span_labeling.methods.json_method import JSONSpanLabeler
+from enum import Enum
 
 
-format: dict[str, str] = {
-    "ner": textwrap.dedent("""
-            Return a JSON list. Each item must have:
-            - "text": exact span or pattern from input
-            - "label": category (PERSON, ORG, LOC)
-            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
-        """),
-    "synthetic": textwrap.dedent("""
-            Return a JSON list. Each item must have:
-            - "text": exact span or pattern from input
-            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
-        """),
-    "error": textwrap.dedent("""
-            Return a JSON list. Each item must have:
-            - "text": exact span or pattern from input
-            - "label": category (GRAMMAR, SPELLING, or PUNCTUATION)
-            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
-        """),
-    "multigec": textwrap.dedent("""
-            Return a JSON list. Each item must have:
-            - "text": exact span or pattern from input
-            - "label": error category (R, U or M)
-            - "correction": correction text
-            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
-        """),
-    "wmt": textwrap.dedent("""
-            Return a JSON list. Each item must have:
-            - "text": exact span or pattern from translation
-            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
-        """),
-    "default": textwrap.dedent("""
-            Return a JSON list. Each item must have:
-            - "text": exact span or pattern from input
-            - "label": category (if applicable)
-            - "occurrence": which occurrence (1 for first, 2 for second, etc.)
-        """),
-}
+class SpanItemWithOccurrence(BaseModel):
+    text: str
+    label: Optional[str] = None
+    occurrence: int
+
+
+class SpansOccurrenceOutput(RootModel[List[SpanItemWithOccurrence]]):
+    pass
+
+
+class SpansOccurrenceOutputSpans(BaseModel):
+    spans: List[SpanItemWithOccurrence]
+
+
+class NERLabel(str, Enum):
+    PER = "PER"
+    ORG = "ORG"
+    LOC = "LOC"
+
+
+class NERSpanItemWithOccurrence(BaseModel):
+    text: str
+    label: Optional[NERLabel] = None
+    occurrence: int
+
+
+class MultigecLabel(str, Enum):
+    R = "R"
+    M = "M"
+    U = "U"
+
+
+class MultigecSpanItemWithOccurrence(BaseModel):
+    text: str
+    label: Optional[MultigecLabel] = None
+    occurrence: int
+
+
+class WMTLabel(str, Enum):
+    MINOR = "MINOR"
+    MAJOR = "MAJOR"
+
+
+class WMTSpanItemWithOccurrence(BaseModel):
+    text: str
+    label: Optional[WMTLabel] = None
+    occurrence: int
+
+
+class SyntheticSpanItemWithOccurrence(BaseModel):
+    text: str
+    occurrence: int
+
+
+class NERSpanOutputWithOccurrence(RootModel[List[NERSpanItemWithOccurrence]]):
+    pass
+
+
+class NERSpanOutputWithOccurrenceSpans(BaseModel):
+    spans: List[NERSpanItemWithOccurrence]
+
+
+class MultigecSpanOutputWithOccurrence(RootModel[List[MultigecSpanItemWithOccurrence]]):
+    pass
+
+
+class MultigecSpanOutputWithOccurrenceSpans(BaseModel):
+    spans: List[MultigecSpanItemWithOccurrence]
+
+
+class WMTSpanOutputWithOccurrence(RootModel[List[WMTSpanItemWithOccurrence]]):
+    pass
+
+
+class WMTSpanOutputWithOccurrenceSpans(BaseModel):
+    spans: List[WMTSpanItemWithOccurrence]
+
+
+class SyntheticSpanOutputWithOccurrence(
+    RootModel[List[SyntheticSpanItemWithOccurrence]]
+):
+    pass
+
+
+class SyntheticSpanOutputWithOccurrenceSpans(BaseModel):
+    spans: List[SyntheticSpanItemWithOccurrence]
 
 
 class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
-    name: str = "occurrence"
+    key: str = "json_occurrence"
 
-    # def format_prompt(self, entry: dict) -> str:
-    #     prompt = textwrap.dedent(
-    #     f"""{entry['instruction']}
+    @classmethod
+    def get_json_schema(cls, task: str):
+        """Return the JSON schema for structured outputs with occurrence"""
+        if task == "ner":
+            return NERSpanOutputWithOccurrence.model_json_schema()
+        elif task == "multigec":
+            return MultigecSpanOutputWithOccurrence.model_json_schema()
+        elif task == "wmt":
+            return WMTSpanOutputWithOccurrence.model_json_schema()
+        elif task == "synthetic":
+            return SyntheticSpanOutputWithOccurrence.model_json_schema()
 
-    #         {entry["model_input"]}
+        return SpansOccurrenceOutput.model_json_schema()
 
-    #         {format.get(entry.get('key', None), format['default'])}
-
-    #         JSON output:""")
-
-    #     return prompt
+    @classmethod
+    def get_openai_json_schema(cls, task: str):
+        """Return the JSON schema for structured outputs with occurrence"""
+        if task == "ner":
+            return NERSpanOutputWithOccurrenceSpans
+        elif task == "multigec":
+            return MultigecSpanOutputWithOccurrenceSpans
+        elif task == "wmt":
+            return WMTSpanOutputWithOccurrenceSpans
+        elif task == "synthetic":
+            return SyntheticSpanOutputWithOccurrenceSpans
+        return SpansOccurrenceOutputSpans
 
     def parse_response(self, entry: dict) -> list[dict]:
-        spans = super().parse_response(entry)
+        # Handle both structured outputs (already parsed) and string responses
+        try:
+            response = entry["response"]
 
-        # Use occurrence to disambiguate
-        for span in spans:
-            occ = span.get("occurrence", 1)
-            # Find the nth occurrence
-            start = -1
-            for i in range(occ):
-                start = entry["text"].find(span["text"], start + 1)
+            # Check if response is already a list (from structured outputs)
+            if isinstance(response, list):
+                # Convert Pydantic instances to dicts
+                data = []
+                for item in response:
+                    if isinstance(item, BaseModel):
+                        data.append(item.model_dump())
+                    else:
+                        data.append(item)
+            # Otherwise parse as string
+            elif isinstance(response, str):
+                # Look for [...] pattern
+                match = re.search(r"\[.*?\]", response, re.DOTALL)
 
-            if start != -1:
-                span["start"] = start
-                span["end"] = start + len(span["text"])
+                if match:
+                    json_str = match.group()
+                    data = json.loads(json_str)
+                else:
+                    return []
+            else:
+                return []
 
-        return spans
+            results = []
+            for item in data:
+                span_text = item.get("text", "")
+                label = item.get("label", "")
+                occurrence = item.get("occurrence", 1)
+
+                # Find the nth occurrence
+                start = -1
+                # last_found = -1
+                for i in range(occurrence):
+                    start = entry["text"].find(span_text, start + 1)
+                #     if start != -1:
+                #         last_found = start
+
+                # if start == -1 and last_found != -1:
+                #     start = last_found
+
+                if start != -1:
+                    if entry["key"] == "multigec" and label == "M":
+                        start = start + len(span_text) + 1
+
+                    results.append(
+                        {
+                            "text": span_text,
+                            "label": label,
+                            "start": start,
+                            "end": start + len(span_text),
+                        }
+                    )
+
+            return results
+        except Exception as e:
+            print(f"Error: {e}")
+
+        return []
+
+    def parse_response_invalid(self, entry: dict) -> list[dict]:
+        try:
+            response = entry["response"]
+
+            # Check if response is already a list (from structured outputs)
+            if isinstance(response, list):
+                # Convert Pydantic instances to dicts
+                data = []
+                for item in response:
+                    if isinstance(item, BaseModel):
+                        data.append(item.model_dump())
+                    else:
+                        data.append(item)
+            # Otherwise parse as string
+            elif isinstance(response, str):
+                # Look for [...] pattern
+                match = re.search(r"\[.*?\]", response, re.DOTALL)
+
+                if match:
+                    json_str = match.group()
+                    data = json.loads(json_str)
+                else:
+                    return []
+            else:
+                return []
+
+            results = []
+            for item in data:
+                span_text = item.get("text", "")
+                label = item.get("label", "")
+                occurrence = item.get("occurrence", 1)
+
+                start = -1
+                last_found = -1
+                for i in range(occurrence):
+                    start = entry["text"].find(span_text, start + 1)
+                    if start != -1:
+                        last_found = start
+
+                if start == -1 and last_found != -1:
+                    start = last_found
+
+                if start == -1:
+                    results.append(
+                        {
+                            "text": span_text,
+                            "label": label,
+                            "start": start,
+                            "end": start + len(span_text),
+                        }
+                    )
+
+            return results
+        except Exception as e:
+            print(f"Error: {e}")
+
+        return []
