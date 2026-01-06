@@ -1,3 +1,4 @@
+# %%
 from typing import Any
 
 
@@ -45,8 +46,20 @@ def compute_overlap_f1(
                 gold_end = gold_span["end"]
                 gold_label = gold_span["label"]
 
+                hyp_label = str(hyp_label)
+                gold_label = str(gold_label)
+
+                # Special case: zero-length spans
+                if gold_start == gold_end and hyp_start == gold_start:
+                    if hard_matching and hyp_label != gold_label:
+                        continue
+                    if (hyp_pos, gold_idx) not in matched_pairs:
+                        matched_pairs.add((hyp_pos, gold_idx))
+                        overlap_length += 1
+                        break
+
                 # Does this gold span cover this position?
-                if gold_start <= hyp_pos < gold_end:
+                elif gold_start <= hyp_pos < gold_end:
                     # Labels must match (hard matching)
                     if hard_matching and hyp_label != gold_label:
                         continue
@@ -60,14 +73,15 @@ def compute_overlap_f1(
     # Calculate metrics
     precision = overlap_length / hyp_length if hyp_length > 0 else 0
     recall = overlap_length / ref_length if ref_length > 0 else 0
+
     f1 = (
         2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
     )
 
     return {
-        "precision": round(precision, 3),
-        "recall": round(recall, 3),
-        "f1": round(f1, 3),
+        "precision": round(precision, 4),
+        "recall": round(recall, 4),
+        "f1": round(f1, 4),
         "overlap_chars": overlap_length,
         "predicted_chars": hyp_length,
         "gold_chars": ref_length,
