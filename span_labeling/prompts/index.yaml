@@ -5,13 +5,12 @@ note_index: &note_index |
   - start is inclusive, end is exclusive
 output_line: &output_line "Output:"
 
-# Prompts
 prompts:
   - method: index
     dataset: ner
-    task: "Extract named entities (PERSON, ORG, LOC) from the text."
+    task: "Extract named entities (PER, ORG, LOC) from the text."
     format: "[start:end] = LABEL"
-    labels: ["PERSON", "ORG", "LOC"]
+    labels: ["PER", "ORG", "LOC"]
     note: *note_index
     last_line: *output_line
     examples:

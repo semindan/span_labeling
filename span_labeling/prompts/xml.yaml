@@ -1,17 +1,15 @@
-# prompts/xml.yaml
 
 note_xml: &note_xml |
   IMPORTANT: You must output the entire text, including non-tagged parts.
   Rewrite the whole input text with XML tags.
 output_line: &output_line "Tagged text:"
 
-# Prompts
 prompts:
   - method: xml
     dataset: ner
-    task: "Extract named entities (PERSON, ORG, LOC) from the text."
+    task: "Extract named entities (PER, ORG, LOC) from the text."
     format: '<entity type="LABEL">text</entity>'
-    labels: ["PERSON", "ORG", "LOC"]
+    labels: ["PER", "ORG", "LOC"]
     note: *note_xml
     last_line: *output_line
     examples:
@@ -57,10 +55,10 @@ prompts:
     last_line: *output_line
     examples:
     - |
-      Text: She go to school every day , but yesterday she forget her homework .
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
 
       Output:
-      She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework .
+      She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework . She brought <error type="M"></error> book to class .
 
   - method: xml
     dataset: wmt

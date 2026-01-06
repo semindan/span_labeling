@@ -1,17 +1,15 @@
-# prompts/occurrence.yaml
 
 note_occurrence: &note_occurrence |
   Return a valid JSON array only.
   If a word appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
 output_line: &output_line "JSON Output:"
 
-# Prompts
 prompts:
-  - method: occurrence
+  - method: json_occurrence
     dataset: ner
-    task: "Extract named entities (PERSON, ORG, LOC) from the text."
-    format: '[{"text": "exact span from input", "label": "category (PERSON, ORG, LOC)", "occurrence": "which occurrence (1, 2, 3...)"}]'
-    labels: ["PERSON", "ORG", "LOC"]
+    task: "Extract named entities (PER, ORG, LOC) from the text."
+    format: '[{"text": "exact span from input", "label": "category (PER, ORG, LOC)", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    labels: ["PER", "ORG", "LOC"]
     note: *note_occurrence
     last_line: *output_line
     examples:
@@ -26,7 +24,7 @@ prompts:
         {"text": "Northvale University", "label": "ORG", "occurrence": 1}
       ]
 
-  - method: occurrence
+  - method: json_occurrence
     dataset: error
     task: "Identify grammatical errors in the text."
     format: '[{"text": "exact span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)", "occurrence": "which occurrence (1, 2, 3...)"}]'
@@ -34,7 +32,7 @@ prompts:
     note: *note_occurrence
     last_line: *output_line
 
-  - method: occurrence
+  - method: json_occurrence
     dataset: synthetic
     task: "Find all text spans that match the given pattern queries."
     format: '[{"text": "exact span from input", "occurrence": "which occurrence (1, 2, 3...)"}]'
@@ -52,48 +50,47 @@ prompts:
         {"text": "love", "occurrence": 1}
       ]
 
-  - method: occurrence
+  - method: json_occurrence
     dataset: multigec
     task: "Identify grammatical errors in learner-written text."
-    format: '[{"text": "exact span from input (or empty for M)", "label": "error type (R/U/M)", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
     label_dict:
       R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
-      M: "Missing: word is missing (text field is empty)"
+      M: "Missing: word is missing (the first non-whitespace token right before the error)"
       U: "Unnecessary: extra word"
     note: *note_occurrence
     last_line: *output_line
     examples:
     - |
-      Text: She go to school every day , but yesterday she forget her homework .
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
 
       Output:
       [
         {"text": "go", "label": "R", "occurrence": 1},
         {"text": ",", "label": "U", "occurrence": 1},
-        {"text": "forget", "label": "R", "occurrence": 1}
+        {"text": "forget", "label": "R", "occurrence": 1},
+        {"text": "brought", "label": "M", "occurrence": 1}
       ]
 
-  - method: occurrence
+  - method: json_occurrence
     dataset: wmt
-    task: "Identify translation errors by comparing the translation to the source text."
-    format: '[{"text": "exact error span from translation", "label": "0 or 1", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    task: "Identify translation errors by comparing the translation to the source text. The errors are words, phrases or punctuation marks in the translation that are incorrect."
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR", "occurrence": "which occurrence (1, 2, 3...)"}]'
     label_dict:
-      0: "Minor error (understandable, small mistake)"
-      1: "Major error (changes meaning, serious mistake)"
+      MINOR: "Minor error (understandable, small mistake)"
+      MAJOR: "Major error (changes meaning, serious mistake)"
     note: |
       Return a valid JSON array only.
-      If a word appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
+      If a word or phrase appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
       Look for errors in Translation
     last_line: *output_line
     examples:
     - |
-      Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
-      Translation: Sie besucht das Museum und kauft einen Reiseführer, aber sie vergessen ihren Regenschirm .
-
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
       Output:
       [
-        {"text": "besucht", "label": 1, "occurrence": 1},
-        {"text": "kauft", "label": 1, "occurrence": 1},
-        {"text": "vergessen", "label": 1, "occurrence": 1},
-        {"text": " ", "label": 0, "occurrence": 1}
+        {"text": "gab seine Schwester", "label": "MAJOR", "occurrence": 1},
+        {"text": "rote", "label": "MAJOR", "occurrence": 1},
+        {"text": "Ball .", "label": "MINOR", "occurrence": 1}
       ]

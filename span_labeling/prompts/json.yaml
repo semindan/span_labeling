@@ -5,9 +5,9 @@ output_line: &output_line "JSON Output:"
 prompts:
   - method: json
     dataset: ner
-    task: "Extract named entities (PERSON, ORG, LOC) from the text."
-    format: '[{"text": "exact text span from input", "label": "category (PERSON, ORG, LOC)"}]'
-    labels: ["PERSON", "ORG", "LOC"]
+    task: "Extract named entities (PER, ORG, LOC) from the text."
+    format: '[{"text": "exact text span from input", "label": "category (PER, ORG, LOC)"}]'
+    labels: ["PER", "ORG", "LOC"]
     note: *note_json
     last_line: *output_line
     examples:
@@ -51,42 +51,41 @@ prompts:
   - method: json
     dataset: multigec
     task: "Identify grammatical errors in learner-written text."
-    format: '[{"text": "exact text span from input (or empty for M)", "label": "error type (R/U/M)"}]'
+    format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
     label_dict:
       R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
-      M: "Missing: word is missing (text field is empty)"
+      M: "Missing: word is missing (the first non-whitespace token right before the error)"
       U: "Unnecessary: extra word"
     note: *note_json
     last_line: *output_line
     examples:
     - |
-      Text: She go to school every day , but yesterday she forget her homework .
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
 
       Output:
       [
         {"text": "go", "label": "R"},
         {"text": ",", "label": "U"},
-        {"text": "forget", "label": "R"}
+        {"text": "forget", "label": "R"},
+        {"text": "brought", "label": "M"}
       ]
 
   - method: json
     dataset: wmt
-    task: "Identify translation errors by comparing the translation to the source text."
-    format: '[{"text": "exact error span from translation", "label": "0 or 1"}]'
+    task: "Identify translation errors by comparing the translation to the source text. The errors are words, phrases or punctuation marks in the translation that are incorrect."
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR"}]'
     label_dict:
-      0: "Minor error (understandable, small mistake)"
-      1: "Major error (changes meaning, serious mistake)"
+      MINOR: "Minor error (understandable, small mistake)"
+      MAJOR: "Major error (changes meaning, serious mistake)"
     note: *note_json
     last_line: *output_line
     examples:
     - |
-      Source: She visited the museum and bought a guidebook, but she forgot her umbrella.
-      Translation: Sie besucht das Museum und kauft einen Reiseführer, aber sie vergessen ihren Regenschirm .
-
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
       Output:
       [
-        {"text": "besucht", "label": 1},
-        {"text": "kauft", "label": 1},
-        {"text": "vergessen", "label": 1},
-        {"text": " ", "label": 0}
+        {"text": "gab seine Schwester", "label": "MAJOR"},
+        {"text": "rote", "label": "MAJOR"},
+        {"text": "Ball .", "label": "MINOR"}
       ]
