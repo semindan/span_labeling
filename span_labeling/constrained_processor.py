@@ -43,11 +43,11 @@ from vllm.v1.sample.logits_processor import (
 
 class SubstringCopyLogitsProcessor(LogitsProcessor):
     """Constrain generation to copy substrings from input text.
-    
+
     At each decode step, allow any token whose decoded piece keeps the value
     a prefix of at least one substring of the original input sentence.
     Also allow the closing quote to end the value and lift constraints.
-    
+
     Performance optimizations:
     - Pre-computes all substrings and builds an index
     - Caches valid starting positions for each prefix
@@ -71,7 +71,7 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
             self.allowed_labels = allowed_labels
             self.label_key = label_key
             self.max_substring_len = max_substring_len
-            
+
             # Reference to the output token IDs (updated by vLLM engine)
             self.output_ids = output_ids
 
@@ -146,16 +146,18 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
 
         # Extract model name from vllm_config
         model_name = vllm_config.model_config.model
-        
-        print(f"[LogitsProcessor] Loading tokenizer for {model_name}...", file=sys.stderr)
+
+        print(
+            f"[LogitsProcessor] Loading tokenizer for {model_name}...", file=sys.stderr
+        )
         from transformers import AutoTokenizer
-        
+
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
+
         # Build id2piece mapping and identify quote tokens
         self.id2piece: dict[int, str] = {}
         self.quote_token_ids: set[int] = set()
-        
+
         try:
             vocab_size = tokenizer.vocab_size
         except Exception:
@@ -163,9 +165,12 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                 vocab_size = len(tokenizer)
             except Exception:
                 vocab_size = 50000
-        
-        print(f"[LogitsProcessor] Building token mappings for {vocab_size} tokens...", file=sys.stderr)
-        
+
+        print(
+            f"[LogitsProcessor] Building token mappings for {vocab_size} tokens...",
+            file=sys.stderr,
+        )
+
         for tid in range(vocab_size):
             try:
                 s = tokenizer.decode(
@@ -175,16 +180,19 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                 )
             except Exception:
                 s = ""
-            
+
             if s is None:
                 s = ""
-            
+
             self.id2piece[tid] = s
-            
+
             if '"' in s:
                 self.quote_token_ids.add(tid)
-        
-        print(f"[LogitsProcessor] Found {len(self.quote_token_ids)} quote tokens. Ready!", file=sys.stderr)
+
+        print(
+            f"[LogitsProcessor] Found {len(self.quote_token_ids)} quote tokens. Ready!",
+            file=sys.stderr,
+        )
 
         # Token prefiltering sets (per-request cache)
         self._potentially_valid_tokens: dict[int, set[int]] = {}
@@ -222,9 +230,12 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                     label_key=label_key,
                     max_substring_len=max_substring_len,
                 )
-                
+
                 if allowed_labels:
-                    print(f"[LogitsProcessor] Request {index} allowed_labels: {allowed_labels}", file=sys.stderr)
+                    print(
+                        f"[LogitsProcessor] Request {index} allowed_labels: {allowed_labels}",
+                        file=sys.stderr,
+                    )
 
                 # Prefilter tokens for this request
                 self._prefilter_tokens(index)
@@ -322,16 +333,24 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
         request_logits: torch.Tensor,
     ) -> torch.Tensor:
         """Apply constraints for a single request.
-        
+
         This is the core logic ported from the original implementation.
         """
         output_ids = state.output_ids  # This is a reference that updates automatically
 
+        # Decode text once for checking tags and prefix searching
+        decoded_text = "".join(self.id2piece.get(tid, "") for tid in output_ids)
+
+        # Check if we are inside <think>...</think>
+        last_think_start = decoded_text.rfind("<think>")
+        if last_think_start != -1:
+            last_think_end = decoded_text.rfind("</think>")
+            if last_think_end == -1 or last_think_end < last_think_start:
+                return request_logits
+
         # Handle label field constraint first (higher priority)
         if state.allowed_labels and state.label_prefix_end_pos is None:
-            decoded_tail = "".join(
-                self.id2piece.get(tid, "") for tid in output_ids
-            )
+            decoded_tail = decoded_text
             last_match = None
             for mm in state.label_value_prefix_re.finditer(decoded_tail):
                 last_match = mm
@@ -354,18 +373,14 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                 self.id2piece.get(tid, "")
                 for tid in output_ids[state.label_prefix_end_pos :]
             ]
-            state.label_value_so_far = state.initial_label_after_quote + "".join(
-                pieces
-            )
+            state.label_value_so_far = state.initial_label_after_quote + "".join(pieces)
 
             # Log newly generated tokens inside the label value
             current_len = len(output_ids) - state.label_prefix_end_pos
             new_pieces = []
             if current_len > state._last_logged_label_len:
                 start = state.label_prefix_end_pos + state._last_logged_label_len
-                new_ids = output_ids[
-                    start : state.label_prefix_end_pos + current_len
-                ]
+                new_ids = output_ids[start : state.label_prefix_end_pos + current_len]
                 for i, tid in enumerate(new_ids, 1):
                     piece = self.id2piece.get(tid, "")
                     new_pieces.append(piece)
@@ -374,7 +389,7 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                         file=sys.stderr,
                     )
                 state._last_logged_label_len = current_len
-            
+
             # Check if we've emitted a closing quote (using the pieces we just logged)
             if any('"' in p for p in new_pieces):
                 print(
@@ -408,7 +423,7 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
             # Apply label constraints
             # Calculate allowed_ids first
             allowed_ids = set(label_allowed_ids)
-            
+
             # Only allow closing quote if the current value is a valid complete label
             if state.label_value_so_far in state.allowed_labels:
                 allowed_ids.update(self.quote_token_ids)
@@ -419,19 +434,19 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                 for tid, val in kept.items():
                     request_logits[tid] = val
             else:
-                 # Dead end. Force close quote to exit gracefully (even if invalid).
-                 # This prevents long hallucinations.
-                 allowed_ids.update(self.quote_token_ids)
-                 kept = {tid: request_logits[tid].item() for tid in allowed_ids}
-                 request_logits[:] = float("-inf")
-                 for tid, val in kept.items():
+                # Dead end. Force close quote to exit gracefully (even if invalid).
+                # This prevents long hallucinations.
+                allowed_ids.update(self.quote_token_ids)
+                kept = {tid: request_logits[tid].item() for tid in allowed_ids}
+                request_logits[:] = float("-inf")
+                for tid, val in kept.items():
                     request_logits[tid] = val
 
             return request_logits
 
         # Handle text field constraint
         if state.prefix_end_pos is None:
-            decoded_tail = "".join(self.id2piece.get(tid, "") for tid in output_ids)
+            decoded_tail = decoded_text
             last_match = None
             for mm in state.value_prefix_re.finditer(decoded_tail):
                 last_match = mm
@@ -450,8 +465,7 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
         # Apply text constraint if active
         if state.prefix_end_pos is not None:
             pieces = [
-                self.id2piece.get(tid, "")
-                for tid in output_ids[state.prefix_end_pos :]
+                self.id2piece.get(tid, "") for tid in output_ids[state.prefix_end_pos :]
             ]
             state.value_so_far = state.initial_value_after_quote + "".join(pieces)
 
