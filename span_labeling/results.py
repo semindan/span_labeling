@@ -1,6 +1,5 @@
 """Unified script for evaluating and exporting span labeling results"""
 
-# %%
 import json
 from pathlib import Path
 from typing import Any
@@ -46,22 +45,31 @@ def evaluate_file(results_path: str) -> dict[str, Any]:
 
         predicted_spans = output.get("spans", []) if isinstance(output, dict) else []
 
+        gold_spans = res["spans"]
         if file_result_metadata.get("dataset") == "wmt":
-            res["allowed_labels"] = ["0", "1"]
-            p_spans = []
+            # res["allowed_labels"] = ["0", "1"]
+            gold_spans_rewritten = []
+            for span in gold_spans:
+                if str(span.get("label")) == "0":
+                    span["label"] = "MINOR"
+                elif str(span.get("label")) == "1":
+                    span["label"] = "MAJOR"
+                gold_spans_rewritten.append(span)
+            gold_spans = gold_spans_rewritten
+
+            predicted_spans_rewritten = []
             for span in predicted_spans:
-                if str(span.get("label")) == "MINOR":
-                    span["label"] = "0"
-                elif str(span.get("label")) == "MAJOR":
-                    span["label"] = "1"
-                p_spans.append(span)
-            predicted_spans = p_spans
+                if str(span.get("label")) == "0":
+                    span["label"] = "MINOR"
+                elif str(span.get("label")) == "1":
+                    span["label"] = "MAJOR"
+                predicted_spans_rewritten.append(span)
+            predicted_spans = predicted_spans_rewritten
 
         # Analyze error type
         error_type = analyze_error(res, method)
         error_counts[error_type] += 1
 
-        gold_spans = res["spans"]
         soft_metrics = evaluate(predicted_spans, gold_spans, hard_matching=False)
         hard_metrics = evaluate(predicted_spans, gold_spans, hard_matching=True)
         all_soft_metrics.append(soft_metrics)
@@ -258,39 +266,3 @@ def compare_methods(
         filtered = group[group["method"].isin(method_list)].sort_values("dataset")
         if not filtered.empty:
             print(filtered.to_string(index=False))
-
-
-# %%
-
-if __name__ == "__main__":
-    # %%
-    res = evaluate_dir("/lnet/work/people/semin/span_labeling/results")
-    # %%
-
-    df = export_csv(
-        "/lnet/work/people/semin/span_labeling/results",
-        "/lnet/work/people/semin/span_labeling/results/summary_results.csv",
-    )
-    # %%
-
-    # fire.Fire({
-    #     "evaluate": {
-    #         "file": evaluate_file,
-    #         "dir": evaluate_dir,
-    #     },
-    #     "export": export_csv,
-    #     "compare": compare_methods,
-    # })
-
-# %%
-# df
-# %%
-
-# for model, group in df.groupby("model"):
-#     print(f"\n{model}:")
-#     display(group)
-# # # %%
-# df[df["dataset_name"].str.contains("overlap")]
-# # %%
-
-# %%
