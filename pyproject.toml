@@ -13,6 +13,7 @@ dependencies = [
     "huggingface-hub>=0.36.0",
     "ipykernel>=6.30.1",
     "mistral-common[audio,hf-hub,image,sentencepiece,server]>=1.8.5",
+    "nbformat>=5.10.4",
     "ollama>=0.6.0",
     "openai>=2.1.0",
     "outlines>=1.2.7",
