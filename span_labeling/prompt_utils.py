@@ -64,10 +64,13 @@ def build_prompt(
             examples_section += f"{i}. {example}\n"
         sections.append(examples_section)
 
+    note_section = ""
     if "note" in prompt_data:
-        sections.append(f"\n{prompt_data['note']}")
+        note_section += f"\n{prompt_data['note']}"
     if note_extra:
-        sections.append(f"\n{note_extra}")
+        note_section += f"{note_extra}"
+    if note_section:
+        sections.append(f"{note_section}\n")
 
     if "instruction" in prompt_data:
         sections.append(f"\n{prompt_data['instruction']}")
