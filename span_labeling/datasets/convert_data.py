@@ -307,10 +307,14 @@ class WMTParser:
             # Convert annotations to spans
             spans = []
             for ann in annotation["annotations"]:
+                label = str(ann.get("type", ""))
+                if label:
+                    label = "MAJOR" if label == "1" else "MINOR"
+
                 spans.append(
                     {
                         "text": ann["text"],
-                        "label": ann.get("type", ""),
+                        "label": label,
                         "start": ann["start"],
                         "end": ann["start"] + len(ann["text"]),
                     }
@@ -332,31 +336,27 @@ class WMTParser:
 if __name__ == "__main__":
     # Process WMT datasets
     print("\n=== Processing WMT datasets ===")
-    wmt_output_dir = Path("/home/semin/personal_work_ms/span_labeling/data/wmt")
+    wmt_output_dir = Path("<your_path>/span_labeling/data/wmt")
     wmt_inputs_paths = {
         "news": Path(
-            "/home/semin/personal_work_ms/span_labeling_data/mt-eval/inputs-mt-eval_wmt24-news/"
+            "<your_path>/span_labeling_data/mt-eval/inputs-mt-eval_wmt24-news/"
         ),
         "literary": Path(
-            "/home/semin/personal_work_ms/span_labeling_data/mt-eval/inputs-wmt24-literary"
+            "<your_path>/span_labeling_data/mt-eval/inputs-wmt24-literary"
         ),
-        "social": Path(
-            "/home/semin/personal_work_ms/span_labeling_data/mt-eval/inputs-wmt24-social/"
-        ),
+        "social": Path("<your_path>/span_labeling_data/mt-eval/inputs-wmt24-social/"),
     }
     wmt_outputs_paths = {
         "news": Path(
-            "/home/semin/personal_work_ms/span_labeling_data/mt-eval/outputs-mt-eval_wmt24-news/"
+            "<your_path>/span_labeling_data/mt-eval/outputs-mt-eval_wmt24-news/"
         ),
         "literary": Path(
-            "/home/semin/personal_work_ms/span_labeling_data/mt-eval/outputs-wmt24-literary/"
+            "<your_path>/span_labeling_data/mt-eval/outputs-wmt24-literary/"
         ),
-        "social": Path(
-            "/home/semin/personal_work_ms/span_labeling_data/mt-eval/outputs-wmt24-social/"
-        ),
+        "social": Path("<your_path>/span_labeling_data/mt-eval/outputs-wmt24-social/"),
     }
 
-    wmt_annotations_path = "/home/semin/personal_work_ms/span_labeling_data/mt-eval/llm-span-annotators span-annotation main annotations-human_mt-eval/annotations.jsonl"
+    wmt_annotations_path = "<your_path>/span_labeling_data/mt-eval/llm-span-annotators span-annotation main annotations-human_mt-eval/annotations.jsonl"
 
     # Match input and output files by language pair
     wmt_datasets = {}
@@ -385,8 +385,8 @@ if __name__ == "__main__":
 
     # # Process MultiGEC dataset
     # print("\n=== Processing MultiGEC dataset ===")
-    # multigec_data_path = Path("/home/semin/personal_work_ms/span_labeling_data/multigec/write-and-improve-corpus-2024-v2/multigec-2025-files/local_eval/ref/en-writeandimprove2024-ref1-dev.m2")
-    # multigec_output_dir = Path("/home/semin/personal_work_ms/span_labeling/data/multigec")
+    # multigec_data_path = Path("<your_path>/span_labeling_data/multigec/write-and-improve-corpus-2024-v2/multigec-2025-files/local_eval/ref/en-writeandimprove2024-ref1-dev.m2")
+    # multigec_output_dir = Path("<your_path>/span_labeling/data/multigec")
     # MultiGECParser.parse(
     #     input_path=multigec_data_path,
     #     output_path=multigec_output_dir / "multigec_en.json"
@@ -394,8 +394,8 @@ if __name__ == "__main__":
 
     # # Process Universal NER datasets
     # print("\n=== Processing Universal NER datasets ===")
-    # universal_ner_data_path = Path("/home/semin/personal_work_ms/span_labeling_data/uner-20231114-092426")
-    # universal_ner_output_dir = Path("/home/semin/personal_work_ms/span_labeling/data/universal_ner")
+    # universal_ner_data_path = Path("<your_path>/span_labeling_data/uner-20231114-092426")
+    # universal_ner_output_dir = Path("<your_path>/span_labeling/data/universal_ner")
 
     # for uner_directory in universal_ner_data_path.glob("*"):
     #     if uner_directory.is_dir():
@@ -416,8 +416,8 @@ if __name__ == "__main__":
     # ]
 
     # for input_file, output_file in synthetic_datasets:
-    #     input_path = Path(f"/home/semin/personal_work_ms/input-labeling/{input_file}")
-    #     output_path = Path(f"/home/semin/personal_work_ms/span_labeling/data/synthetic/{output_file}")
+    #     input_path = Path(f"<your_path>/input-labeling/{input_file}")
+    #     output_path = Path(f"<your_path>/span_labeling/data/synthetic/{output_file}")
     #     if input_path.exists():
     #         SyntheticParser.parse(
     #             input_path=input_path,
