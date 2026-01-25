@@ -36,7 +36,7 @@ class IndexSpanLabeler(SpanLabeler):
     def format_prompt(self, entry: dict) -> str:
         note_extra = ""
         if self.enrich_prompt:
-            note_extra = "- Rely on the character indices provided before words: char_index::word"
+            note_extra = "- Rely on the character indices provided before words in ENRICHED: char_index::word"
             entry = self.enrich(entry)
         return build_prompt(self.key, entry["key"], entry, note_extra=note_extra)
 
@@ -45,7 +45,7 @@ class IndexSpanLabeler(SpanLabeler):
         model_input = entry["model_input"]
 
         enriched_text = self.add_char_indices(text)
-        entry["model_input"] = model_input.replace(text, enriched_text)
+        entry["model_input"] = model_input + "\n" + "Enriched: " + enriched_text
 
         return entry
 
