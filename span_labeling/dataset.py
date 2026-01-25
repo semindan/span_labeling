@@ -103,8 +103,8 @@ class MultigecDataset(Dataset):
 class NerDataset(Dataset):
     key: str = "ner"
     name: str = "Named Entity Recognition dataset"
-    description: str = "NER task to identify PERSON, ORG, and LOC entities"
-    instruction: str = "Extract PERSON, ORG, and LOC entities"
+    description: str = "NER task to identify PER, ORG, and LOC entities"
+    instruction: str = "Extract PER, ORG, and LOC entities"
 
     def load(self):
         self.data = self.load_json()
@@ -123,7 +123,7 @@ class WMTDataset(Dataset):
     key: str = "wmt"
     name: str = "WMT dataset"
     description: str = "WMT translation error detection"
-    instruction: str = "Identify translation errors by comparing the translation to the source text. Error severity: 0=minor, 1=major."
+    instruction: str = "Identify translation errors by comparing the translation to the source text. Error severity: MINOR, MAJOR."
 
     def load(self):
         self.data = self.load_json()
