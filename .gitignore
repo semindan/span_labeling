@@ -1,3 +1,7 @@
 .venv
+.env
+results*
+logs
+torch_compile_cache
 __pycache__
 data

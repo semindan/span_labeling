@@ -1,58 +1,71 @@
+from typing import Type
 
-from abc import ABC, abstractmethod
-from openai import OpenAI
-from typing import List, Dict
 
-class SpanLabeler(ABC):
-    def __init__(self, model_name="hermes3:8b"):
-        self.model_name = model_name
-        self.client = OpenAI(
-            base_url='http://localhost:11434/v1',
-            api_key='ollama',
-        )
-        
-    def call_api(self, prompt: str) -> str:
-        """Call Ollama via OpenAI client"""
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": "You are a precise span labeling system. Follow the output format exactly."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0,
-                max_tokens=4096,
+class MethodRegistryMeta(type):
+    """Metaclass that auto-registers method classes"""
+
+    _registry: dict[str, Type["SpanLabelerBase"]] = {}
+
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        registry_name = namespace.get("name")
+        if registry_name and registry_name != "base":
+            mcs._registry[registry_name] = cls
+        return cls
+
+
+class DatasetRegistryMeta(type):
+    """Metaclass that auto-registers dataset classes"""
+
+    _registry: dict[str, Type["DatasetBase"]] = {}
+
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        registry_name = namespace.get("key")
+        if registry_name:
+            mcs._registry[registry_name] = cls
+        return cls
+
+
+class SpanLabelerBase(metaclass=MethodRegistryMeta):
+    """Base class for span labeling methods"""
+
+    pass
+
+
+class DatasetBase(metaclass=DatasetRegistryMeta):
+    """Base class for datasets"""
+
+    pass
+
+
+class MethodRegistry:
+    """Access point for registered methods"""
+
+    @classmethod
+    def get(cls, name: str) -> Type[SpanLabelerBase]:
+        if name not in MethodRegistryMeta._registry:
+            raise KeyError(
+                f"Method '{name}' not registered. Available: {list(MethodRegistryMeta._registry.keys())}"
             )
-            return response.choices[0].message.content
-        except Exception as e:
-            print(f"Error: {e}")
-            return ""
-    
-    @abstractmethod
-    def format_prompt(self, entry: dict) -> str:
-        pass
-    
-    @abstractmethod
-    def parse_response(self, entry: dict) -> List[Dict]:
-        pass
-    
-    def predict(self, entry: dict) -> Dict:
-        """Main method"""
-        entry["prompt"] = self.format_prompt(entry)
-        entry["response"] = self.call_api(entry["prompt"])
-        
-        try:
-            spans = self.parse_response(entry)
-            entry["output"] = {
-                "success": True,
-                "spans": spans,
-                "raw_response": entry["response"],
-            }
-        except Exception as e:
-            entry["output"] = {
-                "success": False,
-                "spans": [],
-                "raw_response": entry["response"],
-                "error": str(e)
-            }
-        return entry
+        return MethodRegistryMeta._registry[name]
+
+    @classmethod
+    def list_all(cls) -> list:
+        return list(MethodRegistryMeta._registry.keys())
+
+
+class DatasetRegistry:
+    """Access point for registered datasets"""
+
+    @classmethod
+    def get(cls, name: str) -> Type[DatasetBase]:
+        if name not in DatasetRegistryMeta._registry:
+            raise KeyError(
+                f"Dataset '{name}' not registered. Available: {list(DatasetRegistryMeta._registry.keys())}"
+            )
+        return DatasetRegistryMeta._registry[name]
+
+    @classmethod
+    def list_all(cls) -> list:
+        return list(DatasetRegistryMeta._registry.keys())

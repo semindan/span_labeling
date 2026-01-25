@@ -1,0 +1,121 @@
+
+note_xml: &note_xml |
+  IMPORTANT: You must output the entire text, including non-tagged parts.
+  Rewrite the whole input text with XML tags.
+output_line: &output_line "Tagged text:"
+
+prompts:
+  - method: xml
+    dataset: ner
+    task: "Extract named entities (PER, ORG, LOC) from the text."
+    format: '<entity type="LABEL">text</entity>'
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      <entity type="PER">Lina Berg</entity> joined <entity type="ORG">AstraTech</entity> in <entity type="LOC">Stockholm</entity> after finishing her studies at <entity type="ORG">Northvale University</entity>.
+
+
+  - method: xml
+    dataset: error
+    task: "Identify grammatical errors in the text. Only tag the incorrect words."
+    format: '<error type="LABEL">text</error>'
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_xml
+    last_line: *output_line
+
+  - method: xml
+    dataset: synthetic
+    task: "Find all text spans that match the given pattern queries."
+    format: '<match>text</match>'
+    note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      house wake think grey calm wake think ship fast wake think no air <match>light</match> music play air <match>sad</match> read dark air <match>love</match> fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+
+  - method: xml
+    dataset: multigec
+    task: "Identify grammatical errors in learner-written text."
+    format: '<error type="TYPE">text</error>'
+    label_dict:
+      R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
+      M: "Missing: word is missing, use empty tag"
+      U: "Unnecessary: extra word, correction is empty string"
+    note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
+
+      Output:
+      She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework . She brought <error type="M"></error> book to class .
+
+  # - method: xml
+  #   dataset: wmt
+  #   task: "Identify errors in the translation and mark them with XML tags."
+  #   format: '<error type="LEVEL">text</error>'
+  #   label_dict:
+  #     MINOR: "Minor error (understandable, small mistake)"
+  #     MAJOR: "Major error (changes meaning, serious mistake)"
+  #   note: |
+  #     Analyze the translation for accuracy compared to the source text.
+  #     Rewrite the ENTIRE translation, wrapping error spans with XML tags.
+    
+  #     Common error types:
+  #     - Wrong verb tense/form
+  #     - Incorrect case or gender
+  #     - Wrong word choice
+  #     - Missing or added words
+  #     - Grammar mistakes
+  #     - Punctuation errors
+    
+  #     IMPORTANT: 
+  #     - Output the complete translation text
+  #     - Only wrap ERROR spans with tags
+  #     - Keep correct words unchanged (no tags)
+  #     - Use type="MINOR" or type="MAJOR"
+  #     - Wrap minimal spans that contain each error
+
+  #     If there are no errors, output the translation as is without any tags.
+  #   last_line: *output_line
+  #   examples:
+  #   - |
+  #     Source: The boy gave his sister the red ball yesterday.
+  #     Translation: Der Junge gab seine Schwester der rote Ball gestern .
+    
+  #     Explanation:
+  #     - "gab seine Schwester" - wrong case for "sister" (should be accusative)
+  #     - "rote" - wrong gender agreement (should be "roten")
+  #     - "gestern ." - extra space before period
+    
+  #     Output:
+  #     Der Junge <error type="MAJOR">gab seine Schwester</error> der <error type="MAJOR">rote</error> Ball <error type="MINOR">gestern .</error>
+
+  - method: xml
+    dataset: wmt
+    task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."
+    format: '<error type="LEVEL">text</error>'
+    label_dict:
+      MINOR: "Minor error (understandable, small mistake)"
+      MAJOR: "Major error (changes meaning, serious mistake)"
+    note: |
+      IMPORTANT: You must output the entire translation text, including non-tagged parts.
+      Only tag errors in the TRANSLATION. Keep correct words unchanged.
+      If there are no errors, output the translation as is without any tags.
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      Der Junge <error type="MAJOR">gab seine Schwester</error> der <error type="MAJOR">rote</error> Ball <error type="MINOR">gestern .</error>

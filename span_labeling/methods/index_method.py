@@ -1,75 +1,87 @@
 import re
-import textwrap
 from typing import List, Dict
-from span_labeling.base import SpanLabeler
+from span_labeling.methods.span_labeler import SpanLabeler
+from span_labeling.prompt_utils import build_prompt
 
-
-format: dict[str, str] = {
-    "ner": textwrap.dedent("""
-        Output each span as: [start:end] = LABEL
-        Character positions are 0-indexed.
-        Labels: PERSON, ORG, LOC
-        Example: [0:9] = ORG
-                 [25:35] = PERSON
-    """),
-    "synthetic": textwrap.dedent("""
-        Output each span as: [start:end] = LABEL
-        Character positions are 0-indexed.
-        Example: [0:3] = MATCH
-                 [8:11] = MATCH
-    """),
-    "error": textwrap.dedent("""
-        Output each span as: [start:end] = LABEL
-        Character positions are 0-indexed.
-        Labels: GRAMMAR, SPELLING, PUNCTUATION
-        Example: [3:5] = GRAMMAR
-                 [10:15] = SPELLING
-    """),
-    "multigec": textwrap.dedent("""
-        Output each span as: [start:end] = LABEL, CORRECTION
-        Character positions are 0-indexed.
-        Labels: R, U, M
-        Example: [0:3] = R, "the"
-                 [8:11] = U, ""
-                 [15:20] = M, "a"
-    """),
-    "default": textwrap.dedent("""
-        Output each span as: [start:end] = LABEL
-        Character positions are 0-indexed.
-        Example: [0:9] = ORG
-    """),
-}
 
 class IndexSpanLabeler(SpanLabeler):
-    def format_prompt(self, entry: dict) -> str:
-        return textwrap.dedent(
-            f"""Task: {entry['instruction']}
+    key: str = "index"
 
-            Text: "{entry['text']}"
+    def __init__(self, model_name: str, enrich_prompt: bool = False, **kwargs):
+        super().__init__(model_name=model_name, **kwargs)
+        self.enrich_prompt = enrich_prompt
 
-            {format.get(entry.get('key', None), format['default'])}
-
-            Output:""")
-    
     def parse_response(self, entry: dict) -> List[Dict]:
         results = []
-        
-        patterns = [r'\[(\d+):(\d+)\]\s*=\s*(\S+)',
-                    r'\[(\d+):(\d+)\]\s*=\s*(\S+),\s*"([^"]*)"']
-                    
+
+        patterns = [
+            r"\[(\d+):(\d+)\]\s*=\s*(\S+)",
+            r'\[(\d+):(\d+)\]\s*=\s*(\S+),\s*"([^"]*)"',
+        ]
+
         for pattern in patterns:
             for match in re.finditer(pattern, entry["response"]):
                 start = int(match.group(1))
                 end = int(match.group(2))
                 label = match.group(3)
-            
+
                 if 0 <= start < end <= len(entry["text"]):
                     span_text = entry["text"][start:end]
-                    results.append({
-                        'text': span_text,
-                        'label': label,
-                        'start': start,
-                        'end': end
-                    })
-        
+                    results.append(
+                        {"text": span_text, "label": label, "start": start, "end": end}
+                    )
+
         return results
+
+    def format_prompt(self, entry: dict) -> str:
+        note_extra = ""
+        if self.enrich_prompt:
+            note_extra = "- Rely on the character indices provided before words in ENRICHED: char_index::word"
+            entry = self.enrich(entry)
+        return build_prompt(self.key, entry["key"], entry, note_extra=note_extra)
+
+    def enrich(self, entry: dict) -> dict:
+        text = entry["text"]
+        model_input = entry["model_input"]
+
+        enriched_text = self.add_char_indices(text)
+        entry["model_input"] = model_input + "\n" + "Enriched: " + enriched_text
+
+        return entry
+
+    def add_char_indices(self, text: str) -> str:
+        """
+        Add character indices before each word.
+
+        Example:
+            "Apple Inc is big"
+            → "0::Apple 6::Inc 10::is 13::big"
+        """
+        words = text.split()
+        result = []
+        char_pos = 0
+
+        for word in words:
+            result.append(f"{char_pos}::{word}")
+            char_pos += len(word) + 1  # +1 for space
+
+        return " ".join(result)
+
+    def add_char_indices_detailed(self, text: str) -> str:
+        """
+        Show start position for each word.
+
+        Example:
+            "Apple Inc"
+            → "[0-5]::Apple [6-9]::Inc"
+        """
+        words = text.split()
+        result = []
+        char_pos = 0
+
+        for word in words:
+            end_pos = char_pos + len(word)
+            result.append(f"[{char_pos}-{end_pos}]::{word}")
+            char_pos = end_pos + 1
+
+        return " ".join(result)

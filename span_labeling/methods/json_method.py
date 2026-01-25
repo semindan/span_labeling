@@ -1,81 +1,233 @@
 import json
 import re
-import textwrap
-from typing import List, Dict
-from span_labeling.base import SpanLabeler
+from typing import List, Dict, Optional
+from pydantic import BaseModel, RootModel
+from span_labeling.methods.span_labeler import SpanLabeler
+from enum import Enum
 
 
-format: dict[str, str] = {
-    "ner": textwrap.dedent("""
-        Return a JSON list. Each item must have:
-        - "text": exact text span from input
-        - "label": category (PERSON, ORG, LOC)
-        Example: [{"text": "Apple Inc", "label": "ORG"}]
-    """),
-    "synthetic": textwrap.dedent("""
-        Return a JSON list. Each item must have:
-        - "text": exact span or pattern from input
-        Example: [{"text": "cat"}]
-    """),
-    "error": textwrap.dedent("""
-        Return a JSON list. Each item must have:
-        - "text": exact text span from input
-        - "label": category (GRAMMAR, SPELLING, PUNCTUATION)
-        Example: [{"text": "go", "label": "GRAMMAR"}]
-    """),
-    "multigec": textwrap.dedent("""
-        Return a JSON list. Each item must have:
-        - "text": exact text span from input
-        - "label": error category (R, U or M)
-        - "correction": correction text
-        Example: [{"text": "teh", "label": "R", "correction": "the"}]
-    """),
-    "default": textwrap.dedent("""
-        Return a JSON list. Each item must have:
-        - "text": exact text span from input
-        - "label": the category
-        Example: [{"text": "Apple", "label": "ORG"}]
-    """),
-}
+class SpanItem(BaseModel):
+    text: str
+    label: Optional[str] = None
 
+
+class NERLabel(str, Enum):
+    PER = "PER"
+    ORG = "ORG"
+    LOC = "LOC"
+
+
+class NERSpanItem(BaseModel):
+    text: str
+    label: Optional[NERLabel] = None
+
+
+class MultigecLabel(str, Enum):
+    R = "R"
+    M = "M"
+    U = "U"
+
+
+class MultigecSpanItem(BaseModel):
+    text: str
+    label: Optional[MultigecLabel] = None
+
+
+class WMTLabel(str, Enum):
+    MINOR = "MINOR"
+    MAJOR = "MAJOR"
+
+
+class WMTSpanItem(BaseModel):
+    text: str
+    label: Optional[WMTLabel] = None
+
+
+class SyntheticSpanItem(BaseModel):
+    text: str
+
+
+class SpansOutput(RootModel[List[SpanItem]]):
+    pass
+
+
+class SpansOutputSpans(BaseModel):
+    spans: List[SpanItem]
+
+
+class NERSpanOutput(RootModel[List[NERSpanItem]]):
+    pass
+
+
+class NERSpanOutputSpans(BaseModel):
+    spans: List[NERSpanItem]
+
+
+class MultigecSpanOutput(RootModel[List[MultigecSpanItem]]):
+    pass
+
+
+class MultigecSpanOutputSpans(BaseModel):
+    spans: List[MultigecSpanItem]
+
+
+class WMTSpanOutput(RootModel[List[WMTSpanItem]]):
+    pass
+
+
+class WMTSpanOutputSpans(BaseModel):
+    spans: List[WMTSpanItem]
+
+
+class SyntheticSpanOutput(RootModel[List[SyntheticSpanItem]]):
+    pass
+
+
+class SyntheticSpanOutputSpans(BaseModel):
+    spans: List[SyntheticSpanItem]
 
 
 class JSONSpanLabeler(SpanLabeler):
-    def format_prompt(self, entry: dict) -> str:
-        return f"""Task: {entry['instruction']}
+    key: str = "json"
 
-Text: "{entry['text']}"
+    @classmethod
+    def get_json_schema(cls, task: str):
+        """Return the JSON schema for structured outputs"""
 
-{format.get(entry.get('key', None), format['default'])}
+        if task == "ner":
+            print("Getting NER schema")
+            return NERSpanOutput.model_json_schema()
+        elif task == "multigec":
+            print("Getting Multigec schema")
+            return MultigecSpanOutput.model_json_schema()
+        elif task == "wmt":
+            print("Getting WMT schema")
+            return WMTSpanOutput.model_json_schema()
+        elif task == "synthetic":
+            print("Getting Synthetic schema")
+            return SyntheticSpanOutput.model_json_schema()
 
-JSON output:"""
+        return SpansOutput.model_json_schema()
+
+    @classmethod
+    def get_openai_json_schema(cls, task: str):
+        """Return the JSON schema for structured outputs"""
+
+        if task == "ner":
+            print("Getting NER schema")
+            return NERSpanOutputSpans
+        elif task == "multigec":
+            print("Getting Multigec schema")
+            return MultigecSpanOutputSpans
+        elif task == "wmt":
+            print("Getting WMT schema")
+            return WMTSpanOutputSpans
+        elif task == "synthetic":
+            print("Getting Synthetic schema")
+            return SyntheticSpanOutputSpans
+
+        return SpansOutputSpans
 
     def parse_response(self, entry: dict) -> List[Dict]:
-        # Find JSON in response
+        # Handle both structured outputs (already parsed) and string responses
         try:
-            # Look for [...] pattern
-            match = re.search(r'\[.*?\]', entry["response"], re.DOTALL)
-            if match:
-                json_str = match.group()
-                data = json.loads(json_str)
-                
-                results = []
-                for item in data:
-                    span_text = item.get('text', '')
-                    label = item.get('label', '')
-                    
-                    # Find where this text appears
-                    idx = entry["text"].find(span_text)
-                    if idx != -1:
-                        results.append({
-                            'text': span_text,
-                            'label': label,
-                            'start': idx,
-                            'end': idx + len(span_text)
-                        })
-                
-                return results
-        except:
-            pass
-        
+            response = entry["response"]
+
+            # Check if response is already a list (from structured outputs)
+            if isinstance(response, list):
+                # Convert Pydantic instances to dicts
+                data = []
+                for item in response:
+                    if isinstance(item, BaseModel):
+                        data.append(item.model_dump())
+                    else:
+                        data.append(item)
+            # Otherwise parse as string
+            elif isinstance(response, str):
+                # Look for [...] pattern
+                match = re.search(r"\[.*?\]", response, re.DOTALL)
+                if match:
+                    json_str = match.group()
+                    data = json.loads(json_str)
+                else:
+                    return []
+
+            else:
+                return []
+
+            results = []
+            for item in data:
+                span_text = item.get("text", "")
+                label = item.get("label", "")
+
+                # Find where this text appears
+                idx = entry["text"].find(span_text)
+
+                if idx != -1:
+                    if entry["key"] == "multigec" and label == "M":
+                        idx = idx + len(span_text) + 1
+
+                    results.append(
+                        {
+                            "text": span_text,
+                            "label": label,
+                            "start": idx,
+                            "end": idx + len(span_text),
+                        }
+                    )
+
+            return results
+        except Exception as e:
+            print(f"Error: {e}")
+
+        return []
+
+    def parse_response_invalid(self, entry: dict) -> List[Dict]:
+        try:
+            response = entry["response"]
+
+            # Check if response is already a list (from structured outputs)
+            if isinstance(response, list):
+                # Convert Pydantic instances to dicts
+                data = []
+                for item in response:
+                    if isinstance(item, BaseModel):
+                        data.append(item.model_dump())
+                    else:
+                        data.append(item)
+            # Otherwise parse as string
+            elif isinstance(response, str):
+                # Look for [...] pattern
+                match = re.search(r"\[.*?\]", response, re.DOTALL)
+                if match:
+                    json_str = match.group()
+                    data = json.loads(json_str)
+                else:
+                    return []
+
+            else:
+                return []
+
+            results = []
+            for item in data:
+                span_text = item.get("text", "")
+                label = item.get("label", "")
+
+                # Find where this text appears
+                idx = entry["text"].find(span_text)
+
+                if idx == -1:
+                    results.append(
+                        {
+                            "text": span_text,
+                            "label": label,
+                            "start": "INVALID",
+                            "end": "INVALID",
+                        }
+                    )
+
+            return results
+        except Exception as e:
+            print(f"Error: {e}")
+
         return []
