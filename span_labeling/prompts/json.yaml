@@ -1,0 +1,136 @@
+note_json: &note_json |
+  Return a valid JSON array only.
+output_line: &output_line "JSON Output:"
+
+prompts:
+  - method: json
+    dataset: ner
+    task: "Extract named entities (PER, ORG, LOC) from the text."
+    format: '[{"text": "exact text span from input", "label": "category (PER, ORG, LOC)"}]'
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_json
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [
+        {"text": "Lina Berg", "label": "PER"},
+        {"text": "AstraTech", "label": "ORG"},
+        {"text": "Stockholm", "label": "LOC"},
+        {"text": "Northvale University", "label": "ORG"}
+      ]
+
+  - method: json
+    dataset: error
+    task: "Identify grammatical errors in the text."
+    format: '[{"text": "exact text span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)"}]'
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_json
+    last_line: *output_line
+
+  - method: json
+    dataset: synthetic
+    task: "Find all text spans that match the given pattern queries."
+    format: '[{"text": "exact span or pattern from input"}]'
+    note: *note_json
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [
+        {"text": "light"},
+        {"text": "sad"},
+        {"text": "love"}
+      ]
+
+  - method: json
+    dataset: multigec
+    task: "Identify grammatical errors in learner-written text."
+    format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
+    label_dict:
+      R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
+      M: "Missing: word is missing (the first non-whitespace token right before the error)"
+      U: "Unnecessary: extra word"
+    note: *note_json
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
+
+      Output:
+      [
+        {"text": "go", "label": "R"},
+        {"text": ",", "label": "U"},
+        {"text": "forget", "label": "R"},
+        {"text": "brought", "label": "M"}
+      ]
+
+  # - method: json
+  #   dataset: wmt
+  #   task: "Identify errors in the translation by comparing it to the source text."
+  #   format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR"}]'
+  #   label_dict:
+  #     MINOR: "Minor error (understandable, small mistake)"
+  #     MAJOR: "Major error (changes meaning, serious mistake)"
+  #   note: |
+  #     Analyze the translation for accuracy compared to the source text.
+  #     Extract the exact text spans from the TRANSLATION that contain errors.
+    
+  #     Common error types:
+  #     - Wrong verb tense/form
+  #     - Incorrect case or gender
+  #     - Wrong word choice
+  #     - Missing or added words
+  #     - Grammar mistakes
+  #     - Punctuation errors
+    
+  #     Return a valid JSON array only.
+  #     - "text": copy the exact span from the translation (minimal span containing the error)
+  #     - "label": MINOR for small mistakes, MAJOR for meaning-changing errors
+    
+  #     If no errors exist, return an empty array: []
+  #   last_line: *output_line
+  #   examples:
+  #   - |
+  #     Source: The boy gave his sister the red ball yesterday.
+  #     Translation: Der Junge gab seine Schwester der rote Ball gestern .
+    
+  #     Explanation:
+  #     - "gab seine Schwester" - wrong case for "sister"
+  #     - "rote" - wrong gender agreement (should be "roten")
+  #     - "gestern ." - extra space before period
+    
+  #     Output:
+  #     [
+  #       {"text": "gab seine Schwester", "label": "MAJOR"},
+  #       {"text": "rote", "label": "MAJOR"},
+  #       {"text": "gestern .", "label": "MINOR"}
+  #     ]
+
+  - method: json
+    dataset: wmt
+    task: "Identify translation errors by comparing the translation to the source text."
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR"}]'
+    label_dict:
+      MINOR: "Minor error (understandable, small mistake)"
+      MAJOR: "Major error (changes meaning, serious mistake)"
+    note: |
+      Extract the exact text spans from the TRANSLATION that contain errors.
+      Return a valid JSON array only.
+      If no errors exist, return an empty array: []
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      [
+        {"text": "gab seine Schwester", "label": "MAJOR"},
+        {"text": "rote", "label": "MAJOR"},
+        {"text": "gestern .", "label": "MINOR"}
+      ]
