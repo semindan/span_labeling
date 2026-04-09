@@ -1,0 +1,74 @@
+# configs/config.yaml
+experiment_name: span_labeling_experiment
+
+# Model settings
+model:
+  mode: vllm  # vllm | openai
+  base_url: null  # Auto-set based on mode if null
+  api_key: testkeyAAAAA
+  organization: null
+  system_prompt: "You are a precise span labeling model."
+  max_completion_tokens: 4096
+  temperature: null
+  top_p: null
+  top_k: null
+  min_p: null
+  enable_thinking: false
+  example_n: 10000
+
+# # Paths
+# base_dir: ~/personal_work_ms/span_labeling
+# data_dir: null  # Defaults to base_dir/data
+
+# Execution settings
+# max_concurrent_requests: 8
+
+# # Grid search configuration
+grid:
+#   enabled: true
+  
+  models:
+    - name: gpt-5-mini
+      mode: openai
+      temperature: 0.0
+    - name: meta-llama/Llama-3.3-70B-Instruct
+      mode: vllm
+      temperature: 0.0
+  
+  datasets:
+    - type: SyntheticDataset
+      path: data/synthetic/english_word_synthetic_data.json
+      name: null
+    - type: SyntheticDataset
+      path: data/synthetic/english_non_overlapping_word_synthetic_data.json
+      name: null
+    - type: NerDataset
+      path: data/universal_ner/uner_en_ewt.json
+      name: uner_en_ewt
+    - type: NerDataset
+      path: data/universal_ner/uner_zh_gsd.json
+      name: uner_zh_gsd
+    - type: WMTDataset
+      path: data/wmt/wmt-en-cs-news.json
+      name: wmt-en-cs
+  
+  methods:
+    - type: JSONSpanLabeler
+      name: json_structured
+      use_structured_outputs: true
+      constrained: false
+      enrich_prompt: false
+      enable_thinking: false
+    - type: JSONOccurrenceSpanLabeler
+      name: json_occurrence_structured
+      use_structured_outputs: true
+      constrained: false
+      enrich_prompt: false
+      enable_thinking: false
+    - type: IndexSpanLabeler
+      name: index_baseline
+      enrich_prompt: false
+      enable_thinking: false
+    - type: XMLSpanLabeler
+      name: xml_baseline
+      enable_thinking: false

@@ -1,0 +1,56 @@
+experiment:
+  name: hermes_8b_vanilla
+  models:
+    - name: NousResearch/Hermes-3-Llama-3.1-8B
+      mode: vllm
+      max_completion_tokens: 4096
+
+  dataset_groups:
+    - ner_all
+    - multigec_all
+  methods:
+    - type: json
+      name: json
+
+    - type: json
+      name: json_structured
+      use_structured_outputs: true
+
+    - type: json_occurrence
+      name: json_occurrence
+
+    - type: json_occurrence
+      name: json_occurrence_structured
+      use_structured_outputs: true
+
+    - type: xml
+      name: xml
+
+    - type: index
+      name: index
+
+    - type: index
+      name: index_enriched
+      enrich_prompt: true
+
+  seeds: [42, 43, 44, 45, 46]
+
+slurm:
+  job_name: exp_Hermes-3-8B
+  num_gpus: 1
+  time: "48:00:00"
+
+providers:
+  vllm:
+    model: NousResearch/Hermes-3-Llama-3.1-8B
+    tensor_parallel_size: 1
+    max_model_len: 8192
+
+env:
+  cuda_home: /opt/cuda/12.3
+  hf_home: /lnet/troja/work/people/semin/.cache/huggingface
+
+project:
+  dir: /home/semin/personal_work_ms/span_labeling
+  run_script: span_labeling/experiments/run.py
+  max_concurrent_requests: 8
