@@ -44,34 +44,17 @@ def evaluate_file(results_path: str) -> dict[str, Any]:
             method = "json_occurrence"
 
         predicted_spans = output.get("spans", []) if isinstance(output, dict) else []
-
         gold_spans = res["spans"]
-        if file_result_metadata.get("dataset") == "wmt":
-            # res["allowed_labels"] = ["0", "1"]
-            gold_spans_rewritten = []
-            for span in gold_spans:
-                if str(span.get("label")) == "0":
-                    span["label"] = "MINOR"
-                elif str(span.get("label")) == "1":
-                    span["label"] = "MAJOR"
-                gold_spans_rewritten.append(span)
-            gold_spans = gold_spans_rewritten
-
-            predicted_spans_rewritten = []
-            for span in predicted_spans:
-                if str(span.get("label")) == "0":
-                    span["label"] = "MINOR"
-                elif str(span.get("label")) == "1":
-                    span["label"] = "MAJOR"
-                predicted_spans_rewritten.append(span)
-            predicted_spans = predicted_spans_rewritten
 
         # Analyze error type
         error_type = analyze_error(res, method)
         error_counts[error_type] += 1
 
         soft_metrics = evaluate(predicted_spans, gold_spans, hard_matching=False)
-        hard_metrics = evaluate(predicted_spans, gold_spans, hard_matching=True)
+        if file_result_metadata.get("dataset_type") == "synthetic":
+            hard_metrics = soft_metrics
+        else:
+            hard_metrics = evaluate(predicted_spans, gold_spans, hard_matching=True)
         all_soft_metrics.append(soft_metrics)
         all_hard_metrics.append(hard_metrics)
 
@@ -148,6 +131,7 @@ def evaluate_dir(results_dir: str) -> list[dict[str, Any]]:
         print(f"\nEvaluating {result_file.name}:")
         file_results = evaluate_file(str(result_file))
         print("-" * 40)
+        file_results["filepath"] = str(result_file)
         all_results.append(file_results)
 
     return all_results
@@ -168,29 +152,32 @@ def export_csv(results_dir: str, output_csv: str) -> None:
         file_result_metadata = file_result["metadata"]
         avg_metrics = file_result["average_metrics"]
         statistics = file_result.get("statistics", {})
-        method = file_result_metadata.get("custom_method_name", None)
-        if not method:
-            method = file_result_metadata.get("method", "unknown")
 
-        if method == "occurrence":
-            method = "json_occurrence"
-
-        dataset = file_result_metadata.get("custom_dataset_name", None)
-        if not dataset:
-            dataset = Path(file_result_metadata.get("dataset_path", "")).stem
-
-        if "wmt" in dataset and dataset.split("-")[-1] not in [
-            "news",
-            "social",
-            "literary",
-        ]:
-            dataset = dataset + "-news"
+        experiment_name = file_result_metadata["experiment_name"]
+        experiment_timestamp = file_result_metadata["experiment_timestamp"]
+        model = file_result_metadata["model"]["name"]
+        thinking = file_result_metadata["model"]["enable_thinking"]
+        constrained = file_result_metadata["method"]["constrained"]
+        structured = file_result_metadata["method"]["use_structured_outputs"]
+        method_type = file_result_metadata["method"]["type"]
+        method_name = file_result_metadata["method"]["name"]
+        dataset_type = file_result_metadata["dataset"]["type"]
+        dataset_name = file_result_metadata["dataset"]["name"]
+        seed = file_result_metadata.get("seed", "unknown")
 
         record = {
-            "model": file_result_metadata.get("model", ""),
-            "dataset": file_result_metadata.get("dataset", ""),
-            "method": method,
-            "dataset_name": dataset,
+            "result_path": file_result.get("filepath", "unknown"),
+            "experiment_name": experiment_name,
+            "experiment_timestamp": experiment_timestamp,
+            "model": model,
+            "dataset_type": dataset_type,
+            "dataset_name": dataset_name,
+            "method_type": method_type,
+            "method_name": method_name,
+            "seed": seed,
+            "thinking": thinking,
+            "constrained": constrained,
+            "structured": structured,
             "soft_precision": avg_metrics["soft_precision"],
             "soft_recall": avg_metrics["soft_recall"],
             "soft_f1": avg_metrics["soft_f1"],
@@ -223,46 +210,5 @@ def export_csv(results_dir: str, output_csv: str) -> None:
     return df
 
 
-def compare_methods(
-    results_dir: str, methods: str = "xml,json,occurrence,index"
-) -> None:
-    """Compare results across different methods grouped by model
-
-    Args:
-        results_dir: Path to directory containing JSON result files
-        methods: Comma-separated list of methods to compare
-    """
-    all_results = evaluate_dir(results_dir)
-
-    # Prepare data for DataFrame
-    records = []
-    for file_result in all_results:
-        file_result_metadata = file_result["metadata"]
-        avg_metrics = file_result["average_metrics"]
-        statistics = file_result.get("statistics", {})
-        record = {
-            "model": file_result_metadata.get("model", ""),
-            "dataset": file_result_metadata.get("dataset", ""),
-            "method": file_result_metadata.get("method", ""),
-            "dataset_name": Path(file_result_metadata.get("dataset_path", "")).stem,
-            "precision": avg_metrics["precision"],
-            "recall": avg_metrics["recall"],
-            "f1": avg_metrics["f1"],
-            "total_entries": statistics.get("total_entries", 0),
-            "empty_raw_response": statistics.get("empty_raw_response", 0),
-            "parsing_errors": statistics.get("parsing_errors", 0),
-        }
-        records.append(record)
-
-    df = pd.DataFrame.from_records(records)
-    method_list = [m.strip() for m in methods.split(",")]
-
-    print("\n" + "=" * 80)
-    print("COMPARISON BY MODEL")
-    print("=" * 80)
-
-    for model, group in df.groupby("model"):
-        print(f"\n{model}:")
-        filtered = group[group["method"].isin(method_list)].sort_values("dataset")
-        if not filtered.empty:
-            print(filtered.to_string(index=False))
+if __name__ == "__main__":
+    export_csv("results", "results/results.csv")
