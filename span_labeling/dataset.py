@@ -1,10 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import field
 from abc import abstractmethod
 import json
 from span_labeling.base import DatasetBase
 
 
-@dataclass
 class Dataset(DatasetBase):
     path: str
     key: str = ""
@@ -12,6 +11,11 @@ class Dataset(DatasetBase):
     description: str = ""
     instruction: str = ""
     data: list[dict] = field(default_factory=list)
+
+    def __init__(self, config):
+        self.path = config.dataset.path
+        self.key = config.dataset.type
+        self.name = config.dataset.name
 
     @abstractmethod
     def load(self):
@@ -42,7 +46,6 @@ class Dataset(DatasetBase):
             yield self[i]
 
 
-@dataclass
 class SyntheticDataset(Dataset):
     key: str = "synthetic"
     name: str = "Synthetic regex dataset"
@@ -61,7 +64,6 @@ class SyntheticDataset(Dataset):
         return entry
 
 
-@dataclass
 class ErrorDataset(Dataset):
     key: str = "error"
     name: str = "Error detection dataset"
@@ -80,7 +82,6 @@ class ErrorDataset(Dataset):
         return entry
 
 
-@dataclass
 class MultigecDataset(Dataset):
     key: str = "multigec"
     name: str = "MultiGEC dataset"
@@ -99,7 +100,6 @@ class MultigecDataset(Dataset):
         return entry
 
 
-@dataclass
 class NerDataset(Dataset):
     key: str = "ner"
     name: str = "Named Entity Recognition dataset"
@@ -118,7 +118,6 @@ class NerDataset(Dataset):
         return entry
 
 
-@dataclass
 class WMTDataset(Dataset):
     key: str = "wmt"
     name: str = "WMT dataset"
