@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 from pathlib import Path
 from typing import Optional
 import yaml
@@ -12,13 +12,13 @@ CONFIGS_DIR = Path(CODE_ROOT) / "configs"
 class OpenAISettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="OPENAI_",
-        env_file=".env",
+        env_file=Path(PROJECT_ROOT) / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    api_key: str | None = None
-    base_url: str = "https://api.openai.com/v1"
-    organization: str | None = None
+    api_key: str | None = Field(default=None, exclude=True)
+    base_url: str | None = Field(default="https://api.openai.com/v1", exclude=True)
+    organization: str | None = Field(default=None, exclude=True)
 
 
 class OpenRouterSettings(BaseSettings):
@@ -28,19 +28,19 @@ class OpenRouterSettings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    api_key: str | None = None
-    base_url: str = "https://openrouter.ai/api/v1"
+    api_key: str | None = Field(default=None, exclude=True)
+    base_url: str | None = Field(default="https://openrouter.ai/api/v1", exclude=True)
 
 
 class OllamaSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="OLLAMA_",
-        env_file=".env",
+        env_file=Path(PROJECT_ROOT) / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
-    api_key: str = "ollama"
-    port: int = 11434
+    api_key: str = Field(default="ollama", exclude=True)
+    port: int = Field(default=11434, exclude=True)
 
     @property
     def base_url(self) -> str:
@@ -50,25 +50,24 @@ class OllamaSettings(BaseSettings):
 class VllmSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="VLLM_",
-        env_file=".env",
+        env_file=Path(PROJECT_ROOT) / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
-    # provider/client config
-    api_key: str = "testkey"
-    port: int = 8057
+    api_key: str = Field(default="testkey", exclude=True)
+    port: int = Field(default=8057, exclude=True)
 
-    # server config (launch.py)
     model: str = "mistralai/Mistral-Small-24B-Instruct-2501"
-    seed: int = 42
+    # seed: int = 42
     tensor_parallel_size: int = 2
-    max_num_seqs: int = 16
+    max_num_seqs: int = 8
     gpu_mem_util: float = 0.85
     max_model_len: int = 16384
     max_batched_tokens: int = 4096
     dtype: str = "bfloat16"
     logits_processor: str | None = None
+    reasoning_parser: str | None = None
     quantization: str | None = None
     chat_template: str | None = None
 
@@ -100,20 +99,23 @@ class ProviderSettings(BaseSettings):
         return provider
 
 
-class ModelConfig(BaseSettings):
+class ModelConfig(BaseModel):
     name: str
     mode: str = "vllm"
     temperature: float | None = None
     top_p: float | None = None
     top_k: int | None = None
     min_p: float | None = None
-    max_completion_tokens: int | None = 4096
+    max_completion_tokens: int | None = 16384
     enable_thinking: bool = False
+    system_prompt: str | None = (
+        "You are a precise span labeling model. Always provide answers in the required format. Output the final answer after 'Output:'."
+    )
 
     # resolved by validator, do not set in yaml
-    api_key: str | None = None
-    base_url: str | None = None
-    organization: str | None = None
+    api_key: str | None = Field(default=None, exclude=True)
+    base_url: str | None = Field(default=None, exclude=True)
+    organization: str | None = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
     def resolve_provider(self):
@@ -131,31 +133,45 @@ class ModelConfig(BaseSettings):
             self.organization = provider.organization
         return self
 
+    def set_port(self, port: int) -> None:
+        """Replace the port in base_url, preserving host and path."""
+        from urllib.parse import urlparse, urlunparse
 
-class DatasetConfig(BaseSettings):
+        parsed = urlparse(self.base_url)
+        self.base_url = urlunparse(parsed._replace(netloc=f"{parsed.hostname}:{port}"))
+
+
+class DatasetConfig(BaseModel):
     type: str
     path: str
     name: str | None = None
 
+    @model_validator(mode="after")
+    def set_name_from_path(self):
+        if self.name is None:
+            self.name = Path(self.path).stem
+        return self
 
-class MethodConfig(BaseSettings):
+
+class MethodConfig(BaseModel):
     model_config = SettingsConfigDict(extra="allow")
-
     type: str
     name: str
     use_structured_outputs: bool = False
     constrained: bool = False
     enrich_prompt: bool = False
-    enable_thinking: bool = False
 
 
-class ExperimentSettings(BaseSettings):
+class ExperimentSettings(BaseModel):
+    name: str = "span_labeling_experiment"
+    output_dir: str = "results"
     models: list[ModelConfig] = Field(min_length=1)
     datasets: list[DatasetConfig] = Field(default_factory=list)
     dataset_groups: list[str] = Field(
         default_factory=list
     )  # e.g. ["ner_all", "wmt_news"]
     methods: list[MethodConfig] = Field(default_factory=list)
+    seeds: list[int] = Field(default_factory=lambda: [42])
 
     @model_validator(mode="after")
     def validate_models(self):
@@ -176,6 +192,7 @@ class ExperimentSettings(BaseSettings):
     def expand_dataset_groups(self):
         from span_labeling.datasets.dataset_groups import DATASET_GROUPS
 
+        print(f"Expanding dataset groups: {self.dataset_groups}")
         for group in self.dataset_groups:
             if group not in DATASET_GROUPS:
                 raise ValueError(f"Unknown dataset group: {group}")
@@ -187,7 +204,7 @@ class ExperimentSettings(BaseSettings):
         return self.models[0].mode
 
 
-class SlurmSettings(BaseSettings):
+class SlurmSettings(BaseModel):
     job_name: str = "exp_span_labeling"
     partition: str = "gpu-ms"
     num_gpus: int = 2
@@ -197,39 +214,49 @@ class SlurmSettings(BaseSettings):
     mem: str = "48G"
 
 
-class EnvSettings(BaseSettings):
+class EnvSettings(BaseModel):
     cuda_home: str = "/opt/cuda/12.3"
     hf_home: str = "/lnet/troja/work/people/semin/.cache/huggingface"
     hf_hub_offline: int = 1
 
 
-class ProjectSettings(BaseSettings):
+class ProjectSettings(BaseModel):
     dir: str = "/home/semin/personal_work_ms/span_labeling"
     run_script: str = "span_labeling/run.py"
+    max_concurrent_requests: int = 8
+    skip_experiment_if_exists: bool = True
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(PROJECT_ROOT) / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
         env_nested_delimiter="__",
     )
 
-    experiment_name: str = "span_labeling_experiment"
+    config_path: str | None = None
+
     experiment: ExperimentSettings
     slurm: SlurmSettings = Field(default_factory=SlurmSettings)
     providers: ProviderSettings = Field(default_factory=ProviderSettings)
     env: EnvSettings = Field(default_factory=EnvSettings)
     project: ProjectSettings = Field(default_factory=ProjectSettings)
 
+    model: ModelConfig | None = None
+    dataset: DatasetConfig | None = None
+    method: MethodConfig | None = None
+    seed: int | None = None
+
     _instance: Optional["Settings"] = None
 
     @classmethod
-    def from_yaml(cls, yaml_file: Path) -> "Settings":
+    def from_yaml(cls, yaml_file: Path | str) -> "Settings":
+        yaml_file = Path(yaml_file)
         with open(yaml_file, "r", encoding="utf-8") as f:
             instance = cls(**yaml.safe_load(f))
             cls._instance = instance
+            cls._instance.config_path = yaml_file.as_posix()
             return instance
 
     @classmethod
