@@ -98,21 +98,30 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
     key: str = "json_occurrence"
 
     @classmethod
-    def get_json_schema(cls, task: str):
-        """Return the JSON schema for structured outputs with occurrence"""
-        if task == "ner":
-            return NERSpanOutputWithOccurrence.model_json_schema()
-        elif task == "multigec":
-            return MultigecSpanOutputWithOccurrence.model_json_schema()
-        elif task == "wmt":
-            return WMTSpanOutputWithOccurrence.model_json_schema()
-        elif task == "synthetic":
-            return SyntheticSpanOutputWithOccurrence.model_json_schema()
-
-        return SpansOccurrenceOutput.model_json_schema()
+    def get_json_schema(self, task: str, mode: str):
+        if mode == "vllm":
+            return self.get_vllm_json_schema(task)
+        elif mode == "openai":
+            return self.get_openai_json_schema(task)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
 
     @classmethod
-    def get_openai_json_schema(cls, task: str):
+    def get_vllm_json_schema(self, task: str):
+        """Return the JSON schema for structured outputs with occurrence"""
+        if task == "ner":
+            return NERSpanOutputWithOccurrenceSpans.model_json_schema()
+        elif task == "multigec":
+            return MultigecSpanOutputWithOccurrenceSpans.model_json_schema()
+        elif task == "wmt":
+            return WMTSpanOutputWithOccurrenceSpans.model_json_schema()
+        elif task == "synthetic":
+            return SyntheticSpanOutputWithOccurrenceSpans.model_json_schema()
+
+        return SpansOccurrenceOutputSpans.model_json_schema()
+
+    @classmethod
+    def get_openai_json_schema(self, task: str):
         """Return the JSON schema for structured outputs with occurrence"""
         if task == "ner":
             return NERSpanOutputWithOccurrenceSpans
@@ -128,6 +137,8 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
         # Handle both structured outputs (already parsed) and string responses
         try:
             response = entry["response"]
+            if "Output:" in response:
+                response = response.split("Output:")[-1].strip()
 
             # Check if response is already a list (from structured outputs)
             if isinstance(response, list):

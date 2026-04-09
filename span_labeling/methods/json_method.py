@@ -90,27 +90,33 @@ class SyntheticSpanOutputSpans(BaseModel):
 class JSONSpanLabeler(SpanLabeler):
     key: str = "json"
 
-    @classmethod
-    def get_json_schema(cls, task: str):
+    def get_json_schema(self, task: str, mode: str):
+        if mode == "vllm":
+            return self.get_vllm_json_schema(task)
+        elif mode == "openai":
+            return self.get_openai_json_schema(task)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+    def get_vllm_json_schema(self, task: str):
         """Return the JSON schema for structured outputs"""
 
         if task == "ner":
             print("Getting NER schema")
-            return NERSpanOutput.model_json_schema()
+            return NERSpanOutputSpans.model_json_schema()
         elif task == "multigec":
             print("Getting Multigec schema")
-            return MultigecSpanOutput.model_json_schema()
+            return MultigecSpanOutputSpans.model_json_schema()
         elif task == "wmt":
             print("Getting WMT schema")
-            return WMTSpanOutput.model_json_schema()
+            return WMTSpanOutputSpans.model_json_schema()
         elif task == "synthetic":
             print("Getting Synthetic schema")
-            return SyntheticSpanOutput.model_json_schema()
+            return SyntheticSpanOutputSpans.model_json_schema()
 
-        return SpansOutput.model_json_schema()
+        return SpansOutputSpans.model_json_schema()
 
-    @classmethod
-    def get_openai_json_schema(cls, task: str):
+    def get_openai_json_schema(self, task: str):
         """Return the JSON schema for structured outputs"""
 
         if task == "ner":
@@ -132,6 +138,8 @@ class JSONSpanLabeler(SpanLabeler):
         # Handle both structured outputs (already parsed) and string responses
         try:
             response = entry["response"]
+            if "Output:" in response:
+                response = response.split("Output:")[-1].strip()
 
             # Check if response is already a list (from structured outputs)
             if isinstance(response, list):
