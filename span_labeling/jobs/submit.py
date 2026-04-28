@@ -9,7 +9,7 @@ def build_vllm_cmd(v: VllmSettings) -> str:
         f"uv run vllm serve {v.model}",
         "    --port $PORT",
         "    --seed 0",
-        "    --attention-backend FLASH_ATTN",
+        f"    --attention-backend {v.attention_backend}",
         f"    --max-num-seqs {v.max_num_seqs}",
         f"    --gpu-memory-utilization {v.gpu_mem_util}",
         f"    --max-model-len {v.max_model_len}",
@@ -17,8 +17,6 @@ def build_vllm_cmd(v: VllmSettings) -> str:
         f"    --dtype {v.dtype}",
         f"    --tensor-parallel-size {v.tensor_parallel_size}",
         "    --trust-remote-code",
-        # f"    --disable-log-requests",
-        # f"    --enable-chunked-prefill",
     ]
     if v.logits_processor:
         parts.append(f"    --logits_processors {v.logits_processor}")
@@ -56,6 +54,11 @@ def generate_script(cfg: Settings, config_path: Path) -> str:
     )
     port_arg = "--port $PORT" if needs_vllm else ""
     wait_block = "kill $VLLM_PID && wait $VLLM_PID" if needs_vllm else ""
+    batch_invariant = (
+        "export VLLM_BATCH_INVARIANT=1"
+        if needs_vllm and cfg.providers.vllm.batch_invariant
+        else ""
+    )
     return f"""#!/bin/bash
 #SBATCH --job-name={s.job_name}_{experiment_name}
 #SBATCH -p {s.partition}
@@ -74,7 +77,7 @@ export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export HF_HOME={e.hf_home}
 export TRANSFORMERS_CACHE=$HF_HOME
 export HF_HUB_OFFLINE={e.hf_hub_offline}
-export VLLM_BATCH_INVARIANT=1
+{batch_invariant}
 
 cd {p.dir}
 curl -LsSf https://astral.sh/uv/install.sh | sh
