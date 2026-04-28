@@ -62,7 +62,7 @@ class OpenAIModel(Model):
 
         except Exception as e:
             print(f"Error during OpenAI API call: {e}")
-            return "", None
+            return ""
 
     async def async_call_api(self, entry: dict) -> str:
         try:
@@ -82,4 +82,4 @@ class OpenAIModel(Model):
 
         except Exception as e:
             print(f"Error during async OpenAI API call: {e}")
-            return "", None
+            return ""

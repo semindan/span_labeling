@@ -67,6 +67,11 @@ class Model(ABC):
             and response.choices[0].message.reasoning is not None
         ):
             entry["reasoning"] = response.choices[0].message.reasoning
+        elif (
+            hasattr(response.choices[0].message, "reasoning_content")
+            and response.choices[0].message.reasoning_content is not None
+        ):
+            entry["reasoning"] = response.choices[0].message.reasoning_content
 
         return entry
 

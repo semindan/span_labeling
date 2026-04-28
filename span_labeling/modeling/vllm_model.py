@@ -69,7 +69,7 @@ class VLLMModel(Model):
 
         except Exception as e:
             print(f"Error during vLLM API call: {e}")
-            return "", None
+            return ""
 
     async def async_call_api(self, entry: dict) -> str:
         try:
@@ -85,4 +85,4 @@ class VLLMModel(Model):
 
         except Exception as e:
             print(f"Error during async vLLM API call: {e}")
-            return "", None
+            return ""
