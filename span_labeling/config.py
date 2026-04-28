@@ -70,6 +70,8 @@ class VllmSettings(BaseSettings):
     reasoning_parser: str | None = None
     quantization: str | None = None
     chat_template: str | None = None
+    attention_backend: str | None = "FLASH_ATTN"
+    batch_invariant: bool = True
 
     @property
     def base_url(self) -> str:
@@ -216,12 +218,12 @@ class SlurmSettings(BaseModel):
 
 class EnvSettings(BaseModel):
     cuda_home: str = "/opt/cuda/12.3"
-    hf_home: str = "/lnet/troja/work/people/semin/.cache/huggingface"
+    hf_home: str = "/lnet/troja/work/people/<your_username>/.cache/huggingface"
     hf_hub_offline: int = 1
 
 
 class ProjectSettings(BaseModel):
-    dir: str = "/home/semin/personal_work_ms/span_labeling"
+    dir: str = "/home/<your_username>/personal_work_ms/span_labeling"
     run_script: str = "span_labeling/run.py"
     max_concurrent_requests: int = 8
     skip_experiment_if_exists: bool = True
@@ -272,5 +274,5 @@ class Settings(BaseSettings):
 if __name__ == "__main__":
     from pprint import pprint
 
-    settings = Settings.from_yaml(CONFIGS_DIR / "mistral_constrained.yaml")
+    settings = Settings.from_yaml("<config_path>")
     pprint(settings.model_dump())
