@@ -1,0 +1,58 @@
+experiment:
+  name: gemma_4_31b_constrained
+  models:
+    - name: google/gemma-4-31B-it
+      mode: vllm
+      enable_thinking: false
+      max_completion_tokens: 4096
+
+  dataset_groups:
+    - wmt_all
+    - synthetic_all
+  methods:
+    - type: json
+      name: json_constrained
+      constrained: true
+
+    - type: json
+      name: json_structured_constrained
+      use_structured_outputs: true
+      constrained: true
+
+    - type: json_occurrence
+      name: json_occurrence_constrained
+      constrained: true
+
+    - type: json_occurrence
+      name: json_occurrence_structured_constrained
+      use_structured_outputs: true
+      constrained: true
+
+  seeds: [42, 43, 44, 45, 46]
+  # seeds: [42]
+
+slurm:
+  job_name: exp_Gemma-4-31B
+  num_gpus: 2
+  time: "48:00:00"
+  partition: gpu-troja
+
+providers:
+  vllm:
+    model: google/gemma-4-31B-it
+    tensor_parallel_size: 2
+    max_model_len: 8192
+    logits_processor: span_labeling.constrained_processor:SubstringCopyLogitsProcessor
+    attention_backend: TRITON_ATTN
+    gpu_mem_util: 0.95
+    batch_invariant: false
+
+env:
+  cuda_home: /opt/cuda/12.3
+  # hf_home: /lnet/troja/work/people/<your_username>/.cache/huggingface
+  hf_home: /lnet/work/people/<your_username>/.cache/huggingface/
+
+project:
+  dir: /home/<your_username>/personal_work_ms/span_labeling
+  run_script: span_labeling/experiments/run.py
+  max_concurrent_requests: 8

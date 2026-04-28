@@ -1,5 +1,4 @@
 import json
-import re
 from typing import List, Optional
 from pydantic import BaseModel, RootModel
 from span_labeling.methods.json_method import JSONSpanLabeler
@@ -98,21 +97,30 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
     key: str = "json_occurrence"
 
     @classmethod
-    def get_json_schema(cls, task: str):
-        """Return the JSON schema for structured outputs with occurrence"""
-        if task == "ner":
-            return NERSpanOutputWithOccurrence.model_json_schema()
-        elif task == "multigec":
-            return MultigecSpanOutputWithOccurrence.model_json_schema()
-        elif task == "wmt":
-            return WMTSpanOutputWithOccurrence.model_json_schema()
-        elif task == "synthetic":
-            return SyntheticSpanOutputWithOccurrence.model_json_schema()
-
-        return SpansOccurrenceOutput.model_json_schema()
+    def get_json_schema(self, task: str, mode: str):
+        if mode == "vllm":
+            return self.get_vllm_json_schema(task)
+        elif mode == "openai":
+            return self.get_openai_json_schema(task)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
 
     @classmethod
-    def get_openai_json_schema(cls, task: str):
+    def get_vllm_json_schema(self, task: str):
+        """Return the JSON schema for structured outputs with occurrence"""
+        if task == "ner":
+            return NERSpanOutputWithOccurrenceSpans.model_json_schema()
+        elif task == "multigec":
+            return MultigecSpanOutputWithOccurrenceSpans.model_json_schema()
+        elif task == "wmt":
+            return WMTSpanOutputWithOccurrenceSpans.model_json_schema()
+        elif task == "synthetic":
+            return SyntheticSpanOutputWithOccurrenceSpans.model_json_schema()
+
+        return SpansOccurrenceOutputSpans.model_json_schema()
+
+    @classmethod
+    def get_openai_json_schema(self, task: str):
         """Return the JSON schema for structured outputs with occurrence"""
         if task == "ner":
             return NERSpanOutputWithOccurrenceSpans
@@ -128,6 +136,10 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
         # Handle both structured outputs (already parsed) and string responses
         try:
             response = entry["response"]
+            if "Output:" in response:
+                response = response.split("Output:")[-1].strip()
+            if "```json" in response:
+                response = response.split("```json")[-1].split("```")[0].strip()
 
             # Check if response is already a list (from structured outputs)
             if isinstance(response, list):
@@ -141,10 +153,10 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
             # Otherwise parse as string
             elif isinstance(response, str):
                 # Look for [...] pattern
-                match = re.search(r"\[.*?\]", response, re.DOTALL)
-
-                if match:
-                    json_str = match.group()
+                start = response.rfind("[")
+                end = response.rfind("]")
+                if start != -1 and end != -1 and start < end:
+                    json_str = response[start : end + 1]
                     data = json.loads(json_str)
                 else:
                     return []
@@ -159,25 +171,24 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
 
                 # Find the nth occurrence
                 start = -1
+                end = -1
                 # last_found = -1
                 for i in range(occurrence):
                     start = entry["text"].find(span_text, start + 1)
-                #     if start != -1:
-                #         last_found = start
-
-                # if start == -1 and last_found != -1:
-                #     start = last_found
 
                 if start != -1:
+                    end = start + len(span_text)
+
                     if entry["key"] == "multigec" and label == "M":
                         start = start + len(span_text) + 1
+                        end = start
 
                     results.append(
                         {
                             "text": span_text,
                             "label": label,
                             "start": start,
-                            "end": start + len(span_text),
+                            "end": end,
                         }
                     )
 
@@ -190,6 +201,10 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
     def parse_response_invalid(self, entry: dict) -> list[dict]:
         try:
             response = entry["response"]
+            if "Output:" in response:
+                response = response.split("Output:")[-1].strip()
+            if "```json" in response:
+                response = response.split("```json")[-1].split("```")[0].strip()
 
             # Check if response is already a list (from structured outputs)
             if isinstance(response, list):
@@ -203,10 +218,10 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
             # Otherwise parse as string
             elif isinstance(response, str):
                 # Look for [...] pattern
-                match = re.search(r"\[.*?\]", response, re.DOTALL)
-
-                if match:
-                    json_str = match.group()
+                start = response.rfind("[")
+                end = response.rfind("]")
+                if start != -1 and end != -1 and start < end:
+                    json_str = response[start : end + 1]
                     data = json.loads(json_str)
                 else:
                     return []
@@ -240,7 +255,8 @@ class JSONOccurrenceSpanLabeler(JSONSpanLabeler):
                     )
 
             return results
-        except Exception as e:
-            print(f"Error: {e}")
+        except Exception:
+            # print(f"Error: {e}")
+            pass
 
         return []

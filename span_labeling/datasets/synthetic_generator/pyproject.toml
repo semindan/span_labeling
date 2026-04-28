@@ -1,0 +1,11 @@
+[project]
+name = "input-labeling"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "nltk>=3.8",
+    "datasets>=2.14.0",
+    "pycountry>=24.6.1",
+]

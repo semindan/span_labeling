@@ -1,5 +1,4 @@
 import json
-import re
 from typing import List, Dict, Optional
 from pydantic import BaseModel, RootModel
 from span_labeling.methods.span_labeler import SpanLabeler
@@ -90,27 +89,33 @@ class SyntheticSpanOutputSpans(BaseModel):
 class JSONSpanLabeler(SpanLabeler):
     key: str = "json"
 
-    @classmethod
-    def get_json_schema(cls, task: str):
+    def get_json_schema(self, task: str, mode: str):
+        if mode == "vllm":
+            return self.get_vllm_json_schema(task)
+        elif mode == "openai":
+            return self.get_openai_json_schema(task)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+    def get_vllm_json_schema(self, task: str):
         """Return the JSON schema for structured outputs"""
 
         if task == "ner":
             print("Getting NER schema")
-            return NERSpanOutput.model_json_schema()
+            return NERSpanOutputSpans.model_json_schema()
         elif task == "multigec":
             print("Getting Multigec schema")
-            return MultigecSpanOutput.model_json_schema()
+            return MultigecSpanOutputSpans.model_json_schema()
         elif task == "wmt":
             print("Getting WMT schema")
-            return WMTSpanOutput.model_json_schema()
+            return WMTSpanOutputSpans.model_json_schema()
         elif task == "synthetic":
             print("Getting Synthetic schema")
-            return SyntheticSpanOutput.model_json_schema()
+            return SyntheticSpanOutputSpans.model_json_schema()
 
-        return SpansOutput.model_json_schema()
+        return SpansOutputSpans.model_json_schema()
 
-    @classmethod
-    def get_openai_json_schema(cls, task: str):
+    def get_openai_json_schema(self, task: str):
         """Return the JSON schema for structured outputs"""
 
         if task == "ner":
@@ -132,6 +137,10 @@ class JSONSpanLabeler(SpanLabeler):
         # Handle both structured outputs (already parsed) and string responses
         try:
             response = entry["response"]
+            if "Output:" in response:
+                response = response.split("Output:")[-1].strip()
+            if "```json" in response:
+                response = response.split("```json")[-1].split("```")[0].strip()
 
             # Check if response is already a list (from structured outputs)
             if isinstance(response, list):
@@ -145,9 +154,11 @@ class JSONSpanLabeler(SpanLabeler):
             # Otherwise parse as string
             elif isinstance(response, str):
                 # Look for [...] pattern
-                match = re.search(r"\[.*?\]", response, re.DOTALL)
-                if match:
-                    json_str = match.group()
+                # match = re.search(r"\[.*?\]", response, re.DOTALL)
+                start = response.rfind("[")
+                end = response.rfind("]")
+                if start != -1 and end != -1 and start < end:
+                    json_str = response[start : end + 1]
                     data = json.loads(json_str)
                 else:
                     return []
@@ -164,15 +175,17 @@ class JSONSpanLabeler(SpanLabeler):
                 idx = entry["text"].find(span_text)
 
                 if idx != -1:
+                    end = idx + len(span_text)
                     if entry["key"] == "multigec" and label == "M":
                         idx = idx + len(span_text) + 1
+                        end = idx
 
                     results.append(
                         {
                             "text": span_text,
                             "label": label,
                             "start": idx,
-                            "end": idx + len(span_text),
+                            "end": end,
                         }
                     )
 
@@ -185,6 +198,10 @@ class JSONSpanLabeler(SpanLabeler):
     def parse_response_invalid(self, entry: dict) -> List[Dict]:
         try:
             response = entry["response"]
+            if "Output:" in response:
+                response = response.split("Output:")[-1].strip()
+            if "```json" in response:
+                response = response.split("```json")[-1].split("```")[0].strip()
 
             # Check if response is already a list (from structured outputs)
             if isinstance(response, list):
@@ -198,9 +215,10 @@ class JSONSpanLabeler(SpanLabeler):
             # Otherwise parse as string
             elif isinstance(response, str):
                 # Look for [...] pattern
-                match = re.search(r"\[.*?\]", response, re.DOTALL)
-                if match:
-                    json_str = match.group()
+                start = response.rfind("[")
+                end = response.rfind("]")
+                if start != -1 and end != -1 and start < end:
+                    json_str = response[start : end + 1]
                     data = json.loads(json_str)
                 else:
                     return []
@@ -227,7 +245,8 @@ class JSONSpanLabeler(SpanLabeler):
                     )
 
             return results
-        except Exception as e:
-            print(f"Error: {e}")
+        except Exception:
+            pass
+            # print(f"Error: {e}")
 
         return []

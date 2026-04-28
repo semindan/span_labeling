@@ -60,47 +60,6 @@ prompts:
       Output:
       She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework . She brought <error type="M"></error> book to class .
 
-  # - method: xml
-  #   dataset: wmt
-  #   task: "Identify errors in the translation and mark them with XML tags."
-  #   format: '<error type="LEVEL">text</error>'
-  #   label_dict:
-  #     MINOR: "Minor error (understandable, small mistake)"
-  #     MAJOR: "Major error (changes meaning, serious mistake)"
-  #   note: |
-  #     Analyze the translation for accuracy compared to the source text.
-  #     Rewrite the ENTIRE translation, wrapping error spans with XML tags.
-    
-  #     Common error types:
-  #     - Wrong verb tense/form
-  #     - Incorrect case or gender
-  #     - Wrong word choice
-  #     - Missing or added words
-  #     - Grammar mistakes
-  #     - Punctuation errors
-    
-  #     IMPORTANT: 
-  #     - Output the complete translation text
-  #     - Only wrap ERROR spans with tags
-  #     - Keep correct words unchanged (no tags)
-  #     - Use type="MINOR" or type="MAJOR"
-  #     - Wrap minimal spans that contain each error
-
-  #     If there are no errors, output the translation as is without any tags.
-  #   last_line: *output_line
-  #   examples:
-  #   - |
-  #     Source: The boy gave his sister the red ball yesterday.
-  #     Translation: Der Junge gab seine Schwester der rote Ball gestern .
-    
-  #     Explanation:
-  #     - "gab seine Schwester" - wrong case for "sister" (should be accusative)
-  #     - "rote" - wrong gender agreement (should be "roten")
-  #     - "gestern ." - extra space before period
-    
-  #     Output:
-  #     Der Junge <error type="MAJOR">gab seine Schwester</error> der <error type="MAJOR">rote</error> Ball <error type="MINOR">gestern .</error>
-
   - method: xml
     dataset: wmt
     task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."

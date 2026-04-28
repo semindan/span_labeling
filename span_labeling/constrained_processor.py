@@ -186,7 +186,7 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
 
             self.id2piece[tid] = s
 
-            if '"' in s:
+            if s == '"' or s.startswith('"'):
                 self.quote_token_ids.add(tid)
 
         print(
@@ -326,29 +326,25 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
 
         return logits
 
-    def _apply_request_constraints(
-        self,
-        req_index: int,
-        state: RequestState,
-        request_logits: torch.Tensor,
-    ) -> torch.Tensor:
-        """Apply constraints for a single request.
-
-        This is the core logic ported from the original implementation.
-        """
-        output_ids = state.output_ids  # This is a reference that updates automatically
-
-        # Decode text once for checking tags and prefix searching
-        decoded_text = "".join(self.id2piece.get(tid, "") for tid in output_ids)
-
-        # Check if we are inside <think>...</think>
+    def _think_block_check(self, decoded_text: str) -> bool:
+        """Check if we are currently inside a <think>...</think> block."""
         last_think_start = decoded_text.rfind("<think>")
         if last_think_start != -1:
             last_think_end = decoded_text.rfind("</think>")
             if last_think_end == -1 or last_think_end < last_think_start:
-                return request_logits
+                return True
+        return False
 
-        # Handle label field constraint first (higher priority)
+    def _apply_label_constraints(
+        self,
+        req_index: int,
+        state: RequestState,
+        request_logits: torch.Tensor,
+        decoded_text: str,
+    ) -> torch.Tensor:
+        """Apply label constraints for a single request."""
+        output_ids = state.output_ids
+
         if state.allowed_labels and state.label_prefix_end_pos is None:
             decoded_tail = decoded_text
             last_match = None
@@ -388,20 +384,20 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                         f"[LogitsProcessor] Emitted label token {i + state._last_logged_label_len}: id={tid}, piece={piece!r}",
                         file=sys.stderr,
                     )
-                state._last_logged_label_len = current_len
+                # Check if we've emitted a closing quote (using the pieces we just logged)
+                if any('"' in p for p in new_pieces):
+                    print(
+                        f"[LogitsProcessor] Detected closing quote for label in span #{state.span_index}. Lifting label constraints.",
+                        file=sys.stderr,
+                    )
+                    state.label_prefix_end_pos = None
+                    state.label_value_so_far = ""
+                    state.initial_label_after_quote = ""
+                    state._last_logged_label_len = 0
+                    # Return early since we are no longer in label mode
+                    return request_logits
 
-            # Check if we've emitted a closing quote (using the pieces we just logged)
-            if any('"' in p for p in new_pieces):
-                print(
-                    f"[LogitsProcessor] Detected closing quote for label in span #{state.span_index}. Lifting label constraints.",
-                    file=sys.stderr,
-                )
-                state.label_prefix_end_pos = None
-                state.label_value_so_far = ""
-                state.initial_label_after_quote = ""
-                state._last_logged_label_len = 0
-                # Return early since we are no longer in label mode
-                return request_logits
+                state._last_logged_label_len = current_len
 
             # Compute allowed next token IDs for labels
             label_allowed_ids: list[int] = []
@@ -427,22 +423,29 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
             # Only allow closing quote if the current value is a valid complete label
             if state.label_value_so_far in state.allowed_labels:
                 allowed_ids.update(self.quote_token_ids)
-
-            if allowed_ids:
-                kept = {tid: request_logits[tid].item() for tid in allowed_ids}
-                request_logits[:] = float("-inf")
-                for tid, val in kept.items():
-                    request_logits[tid] = val
-            else:
+            if not allowed_ids:
                 # Dead end. Force close quote to exit gracefully (even if invalid).
-                # This prevents long hallucinations.
                 allowed_ids.update(self.quote_token_ids)
-                kept = {tid: request_logits[tid].item() for tid in allowed_ids}
-                request_logits[:] = float("-inf")
-                for tid, val in kept.items():
-                    request_logits[tid] = val
 
-            return request_logits
+            kept = {tid: request_logits[tid].item() for tid in allowed_ids}
+            request_logits[:] = float("-inf")
+            for tid, val in kept.items():
+                request_logits[tid] = val
+
+        return request_logits
+
+    def _apply_text_constraints(
+        self,
+        req_index: int,
+        state: RequestState,
+        request_logits: torch.Tensor,
+        decoded_text: Optional[str],
+    ) -> torch.Tensor:
+        """Apply constraints for a single request.
+
+        This is the core logic ported from the original implementation.
+        """
+        output_ids = state.output_ids  # This is a reference that updates automatically
 
         # Handle text field constraint
         if state.prefix_end_pos is None:
@@ -480,6 +483,20 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                         f"[LogitsProcessor] Emitted token {i + state._last_logged_len}: id={tid}, piece={piece!r}",
                         file=sys.stderr,
                     )
+                # Check for closing quote
+                new_pieces = pieces[state._last_logged_len : current_len]
+                if any('"' in p for p in new_pieces):
+                    print(
+                        f"[LogitsProcessor] Detected closing quote for span #{state.span_index}. Lifting constraints.",
+                        file=sys.stderr,
+                    )
+                    state.prefix_end_pos = None
+                    state.value_so_far = ""
+                    state.initial_value_after_quote = ""
+                    state._last_logged_len = 0
+                    state._valid_starts = []
+                    state.span_index += 1
+                    return request_logits
                 state._last_logged_len = current_len
 
             # Compute allowed next token IDs
@@ -491,10 +508,6 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                 starts = state._valid_starts
             else:
                 starts = state.get_valid_starts(vt)
-
-            # Early exit if no valid continuations exist
-            if not starts:
-                return request_logits
 
             # Optimization: collect valid next characters
             next_chars = set()
@@ -523,31 +536,39 @@ class SubstringCopyLogitsProcessor(LogitsProcessor):
                             break
 
             # Apply constraints
-            if prefix_allowed_ids:
-                allowed_ids = set(prefix_allowed_ids)
-                allowed_ids.update(self.quote_token_ids)
-                kept = {tid: request_logits[tid].item() for tid in allowed_ids}
-                request_logits[:] = float("-inf")
-                for tid, val in kept.items():
-                    request_logits[tid] = val
+            allowed_ids = set(prefix_allowed_ids)
+            allowed_ids.update(self.quote_token_ids)
+            kept = {tid: request_logits[tid].item() for tid in allowed_ids}
+            request_logits[:] = float("-inf")
+            for tid, val in kept.items():
+                request_logits[tid] = val
 
-            # Update valid starts for next iteration
-            if starts and vt:
-                state._valid_starts = starts
+        return request_logits
 
-            # Check for closing quote
-            if current_len > state._last_logged_len:
-                new_pieces = pieces[state._last_logged_len :]
-                if any('"' in p for p in new_pieces):
-                    print(
-                        f"[LogitsProcessor] Detected closing quote for span #{state.span_index}. Lifting constraints.",
-                        file=sys.stderr,
-                    )
-                    state.prefix_end_pos = None
-                    state.value_so_far = ""
-                    state.initial_value_after_quote = ""
-                    state._last_logged_len = 0
-                    state._valid_starts = []
-                    state.span_index += 1
+    def _apply_request_constraints(
+        self,
+        req_index: int,
+        state: RequestState,
+        request_logits: torch.Tensor,
+    ) -> torch.Tensor:
+        """Apply constraints for a single request.
+
+        This is the core logic ported from the original implementation.
+        """
+        output_ids = state.output_ids
+        # Decode text once for checking tags and prefix searching
+        decoded_text = "".join(self.id2piece.get(tid, "") for tid in output_ids)
+
+        if self._think_block_check(decoded_text):
+            return request_logits
+
+        request_logits = self._apply_label_constraints(
+            req_index, state, request_logits, decoded_text
+        )
+        if state.label_prefix_end_pos is not None:
+            return request_logits
+        request_logits = self._apply_text_constraints(
+            req_index, state, request_logits, decoded_text
+        )
 
         return request_logits

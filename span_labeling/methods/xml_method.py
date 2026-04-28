@@ -12,6 +12,10 @@ class XMLSpanLabeler(SpanLabeler):
         results = []
         tag_pattern = r"<(\w+)([^>]*)>([^<]+)</\1>"
 
+        response = entry["response"]
+        if "Output:" in response:
+            response = response.split("Output:")[-1].strip()
+
         original_pos = 0
         response_pos = 0
         used_positions = set()

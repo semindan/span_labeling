@@ -1,7 +1,9 @@
 .venv
 .env
-results*
+results/*.json
 logs
 torch_compile_cache
 __pycache__
 data
+old
+_results/*

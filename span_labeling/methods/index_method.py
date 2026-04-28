@@ -1,3 +1,4 @@
+# %%
 import re
 from typing import List, Dict
 from span_labeling.methods.span_labeler import SpanLabeler
@@ -7,12 +8,12 @@ from span_labeling.prompt_utils import build_prompt
 class IndexSpanLabeler(SpanLabeler):
     key: str = "index"
 
-    def __init__(self, model_name: str, enrich_prompt: bool = False, **kwargs):
-        super().__init__(model_name=model_name, **kwargs)
-        self.enrich_prompt = enrich_prompt
-
     def parse_response(self, entry: dict) -> List[Dict]:
         results = []
+
+        response = entry["response"]
+        if "Output:" in response:
+            response = response.split("Output:")[-1].strip()
 
         patterns = [
             r"\[(\d+):(\d+)\]\s*=\s*(\S+)",
@@ -20,12 +21,12 @@ class IndexSpanLabeler(SpanLabeler):
         ]
 
         for pattern in patterns:
-            for match in re.finditer(pattern, entry["response"]):
+            for match in re.finditer(pattern, response):
                 start = int(match.group(1))
                 end = int(match.group(2))
                 label = match.group(3)
 
-                if 0 <= start < end <= len(entry["text"]):
+                if 0 <= start < end:
                     span_text = entry["text"][start:end]
                     results.append(
                         {"text": span_text, "label": label, "start": start, "end": end}
@@ -35,7 +36,7 @@ class IndexSpanLabeler(SpanLabeler):
 
     def format_prompt(self, entry: dict) -> str:
         note_extra = ""
-        if self.enrich_prompt:
+        if self.config.method.enrich_prompt:
             note_extra = "- Rely on the character indices provided before words in ENRICHED: char_index::word"
             entry = self.enrich(entry)
         return build_prompt(self.key, entry["key"], entry, note_extra=note_extra)

@@ -1,158 +1,248 @@
-# %%
-import json
-import re
+from __future__ import annotations
+from enum import Enum
+
 from span_labeling.methods.json_method import JSONSpanLabeler
 from span_labeling.methods.occurrence_method import JSONOccurrenceSpanLabeler
+from span_labeling.methods.xml_method import XMLSpanLabeler
+from span_labeling.methods.index_method import IndexSpanLabeler
+import json
 
 
-def analyze_error(entry, method_name):
-    output = entry.get("output", {})
+class ErrorType(str, Enum):
+    EMPTY_RESPONSE = "empty_response"
+    FORMAT_ERROR = "format_error"
+    SPAN_NOT_FOUND = "span_not_found"
+    PARTIAL_SPAN_NOT_FOUND = "partial_span_not_found"
+    INVALID_LABEL = "invalid_label"
+    PARTIAL_INVALID_LABEL = "partial_invalid_label"
+    EMPTY_PREDICTION = "empty_prediction"
+    SUCCESS = "success"
+    FORMAT_MAX_TOKENS_EXCEEDED = "format_max_tokens_exceeded"
+    FORMAT_UNESCAPED_QUOTES = "format_unescaped_quotes"
+    EMPTY_LABEL = "empty_label"
+    PARTIAL_EMPTY_LABEL = "partial_empty_label"
+    QUOTATIONS_IN_SPANS = "quotations_in_spans"
+    PARTIAL_QUOTATIONS_IN_SPANS = "partial_quotations_in_spans"
+
+
+def _get_labeler(method_name):
+    """Return a labeler instance for the given method name."""
+    if "occurrence" in method_name:
+        return JSONOccurrenceSpanLabeler(None, None)
+    if method_name.startswith("json"):
+        return JSONSpanLabeler(None, None)
+    if method_name.startswith("xml"):
+        return XMLSpanLabeler(None, None)
+    if method_name.startswith("index"):
+        return IndexSpanLabeler(None, None)
+    raise ValueError(f"Unknown method: {method_name!r}")
+
+
+def _get_output_part_json(raw_response: str) -> str:
+    """Extract the part of the raw response that should contain the spans, for better error analysis."""
+    raw_response = str(raw_response) if raw_response is not None else ""
+    if "Output:" in raw_response:
+        return raw_response.split("Output:")[-1].strip()
+    if "```json" in raw_response:
+        return raw_response.split("```json")[-1].split("```")[0].strip()
+
+    # structured_match = (
+    #     re.search(r".*(\[.*\])", raw_response, re.DOTALL) or
+    #     re.search(r".*(\{.*\})", raw_response, re.DOTALL)
+    # )
+
+    start = raw_response.rfind("[")
+    end = raw_response.rfind("]")
+    if start != -1 and end != -1 and start < end:
+        ret = raw_response[start : end + 1].strip()
+        if '"spans":' in ret:
+            try:
+                ret = json.loads(ret).get("spans", [])
+                return str(ret)
+            except json.JSONDecodeError:
+                pass
+        elif ret:
+            return ret
+
+    return raw_response.strip()
+
+
+def _get_output_part(raw_response: str) -> str:
+    raw_response = str(raw_response) if raw_response is not None else ""
+    if "Output:" in raw_response:
+        return raw_response.split("Output:")[-1].strip()
+    return raw_response.strip()
+
+
+def analyze_error_json_based(entry: dict) -> ErrorType:
+    output = entry.get("output") or {}
+    located_spans: list[dict] = output.get("spans") or []
+    allowed_labels: list | None = entry.get("allowed_labels")
+    dataset_type = entry.get("metadata", {}).get("dataset", {}).get("type", "unknown")
+    method_name = entry.get("metadata", {}).get("method", {}).get("name", "unknown")
+    # method_type = entry.get("metadata", {}).get("method", {}).get("type", "unknown")
+    thinking = entry.get("metadata", {}).get("model", {}).get("thinking", False)
     raw_response = output.get("raw_response", "")
 
-    if not isinstance(raw_response, str):
-        raw_response = str(raw_response)
+    raw_response = _get_output_part_json(raw_response)
 
-    # 1. Empty Response
-    if not raw_response or not raw_response.strip():
-        return "Empty Response"
+    if not raw_response:
+        return ErrorType.EMPTY_RESPONSE
 
-    # 2. Runner Error
-    if "error" in output:
-        return f"Runner Error: {output['error']}"
+    json_parsed = None
+    json_issue = None
+    try:
+        json_parsed = json.loads(raw_response)
+        if "spans" in json_parsed:
+            json_parsed = json_parsed["spans"]
+    except json.JSONDecodeError as e:
+        json_parsed = None
+        json_issue = e
 
-    predicted_spans = output.get("spans", [])
+    if raw_response == "[]" or (json_parsed is not None and json_parsed == []):
+        return ErrorType.EMPTY_PREDICTION
 
-    # 3. Check for Invalid Labels if spans exist
-    if predicted_spans:
-        allowed_labels = entry.get("allowed_labels")
-        allowed_labels = (
-            [str(label) for label in allowed_labels] if allowed_labels else None
-        )
-
-        if allowed_labels:
-            invalid_count = 0
-            for span in predicted_spans:
-                label = str(span.get("label"))
-                if label not in allowed_labels:
-                    invalid_count += 1
-
-            if invalid_count == len(predicted_spans):
-                return "All Invalid Labels"
-            elif invalid_count > 0:
-                return "Partial Invalid Labels"
-
-        return "Success"
-
-    # 4. Empty Prediction (Valid)
-
-    if raw_response.strip() == "[]":
-        return "Empty Prediction (Valid)"
-
-    stripped = raw_response.strip()
-
-    # 5. Truncation / Length Limit
-    is_truncated = False
-    if "json" in method_name or "occurrence" in method_name:
-        if not (stripped.endswith("]") or stripped.endswith("}")):
-            is_truncated = True
-    # XML truncation check removed as it can end with text
-
-    if is_truncated:
-        return "Likely Truncated (Length Limit)"
-
-    # 6. Invalid Spans (Content Mismatch)
-    # If we are here, predicted_spans is empty, but raw_response is not empty/[]
-    # Check if we can parse it but the spans were invalid (e.g. text not found)
-    if "json" in method_name or "occurrence" in method_name:
+    labeler = _get_labeler(method_name)
+    if hasattr(labeler, "parse_response_invalid"):
         try:
-            # Prepare entry for the method (needs text and response)
-            # entry passed here might be the full result entry which has 'text'
-
-            invalid_spans = []
-            if "occurrence" in method_name:
-                labeler = JSONOccurrenceSpanLabeler()
-                # We need to reconstruct the entry format expected by parse_response_invalid
-                # It expects 'response' and 'text'
-                check_entry = {"response": raw_response, "text": entry.get("text", "")}
-                invalid_spans = labeler.parse_response_invalid(check_entry)
-            elif "json" in method_name:
-                labeler = JSONSpanLabeler()
-                check_entry = {"response": raw_response, "text": entry.get("text", "")}
-                invalid_spans = labeler.parse_response_invalid(check_entry)
-
-            if invalid_spans:
-                return "Invalid Spans (Content Mismatch)"
-
+            attempted_spans = labeler.parse_response_invalid(entry)
         except Exception:
-            pass  # Fall through to syntax error check
+            attempted_spans = []
+    else:
+        attempted_spans = []
 
-    # 7. Syntax vs Schema Errors
-    if "json" in method_name or "occurrence" in method_name:
-        try:
-            match = re.search(r"\[.*?\]", stripped, re.DOTALL)
-            if match:
-                json_str = match.group()
-                json.loads(json_str)
-                return "Invalid Content / Schema (Parsed JSON)"
+    # if there are no valid located spans and even no attempted spans, it's probably a format error
+    if not attempted_spans and not located_spans:
+        if (entry["completion_tokens"] >= 4096 and not thinking) or (
+            entry["completion_tokens"] >= 16384 and thinking
+        ):
+            return ErrorType.FORMAT_MAX_TOKENS_EXCEEDED
+
+        if json_issue:
+            if json_issue.msg == "Expecting ',' delimiter":
+                return ErrorType.FORMAT_UNESCAPED_QUOTES
+            elif json_issue.msg == "Expecting property name enclosed in double quotes":
+                return ErrorType.FORMAT_UNESCAPED_QUOTES
+            elif json_issue.msg == "Expecting ':' delimiter":
+                return ErrorType.FORMAT_UNESCAPED_QUOTES
             else:
-                json.loads(stripped)
-                return "Invalid Content / Schema (Parsed JSON)"
-        except json.JSONDecodeError:
-            return "JSON Syntax Error"
+                print(f"Raw response: {raw_response}")
+                print(f"JSON parsing error: {json_issue}")
+                print(f"Message: {json_issue.msg}")
 
-    return "Parsing Error (Other)"
+        return ErrorType.FORMAT_ERROR
+
+    # attempted spans are already spans that are not in the text, so if there are some attempted spans and no located spans
+    # it's a span not found error
+
+    # we just check located spans, if there are none -> there are no spans from the text
+    if len(located_spans) == 0:
+        # we have no located spans, but if we have attempted spans with quotation marks, we know it's a specific error
+        if all('"' in s.get("text", "") for s in attempted_spans):
+            return ErrorType.QUOTATIONS_IN_SPANS
+
+        return ErrorType.SPAN_NOT_FOUND
+
+    # here we know we have located spans, but if we also have attempted spans, we say it's a partial span not found
+    # we must have valid spans and only then we look at labels
+    if len(attempted_spans) > 0:
+        if any('"' in s.get("text", "") for s in attempted_spans):
+            return ErrorType.PARTIAL_QUOTATIONS_IN_SPANS
+        return ErrorType.PARTIAL_SPAN_NOT_FOUND
+
+    # here we know we have located spans and we don't have any failed (attempted) spans
+    # apart from synthetic datasets, we check label validity if we have valid labels in located spans
+    if dataset_type != "synthetic" and allowed_labels:
+        allowed = set(str(_l) for _l in allowed_labels)
+        invalid = sum(
+            1 for s in located_spans if str(s.get("label", "")) not in allowed
+        )
+        if invalid == len(located_spans):
+            if all(
+                str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
+                for s in located_spans
+            ):
+                return ErrorType.EMPTY_LABEL
+
+            return ErrorType.INVALID_LABEL
+        if invalid > 0:
+            if any(
+                str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
+                for s in located_spans
+            ):
+                return ErrorType.PARTIAL_EMPTY_LABEL
+            return ErrorType.PARTIAL_INVALID_LABEL
+
+    return ErrorType.SUCCESS
 
 
-# %%
-if __name__ == "__main__":
-    # %%
-    import json
-    from pathlib import Path
+def analyze_error_other(entry: dict) -> ErrorType:
+    output = entry.get("output") or {}
+    located_spans: list[dict] = output.get("spans") or []
+    allowed_labels: list | None = entry.get("allowed_labels")
+    dataset_type = entry.get("metadata", {}).get("dataset", {}).get("type", "unknown")
+    # method_name = entry.get("metadata", {}).get("method", {}).get("name", "unknown")
+    method_type = entry.get("metadata", {}).get("method", {}).get("type", "unknown")
+    thinking = entry.get("metadata", {}).get("model", {}).get("thinking", False)
+    raw_response = output.get("raw_response", "")
 
-    # path = Path("/home/semin/personal_work_ms/span_labeling/results/Qwen__Qwen3-8B_json_occurrence_constrained_uner_en_ewt_results.json")
-    # path = Path("/home/semin/personal_work_ms/span_labeling/results/Qwen__Qwen3-8B_json_occurrence_constrained_english_word_synthetic_data_results.json")
-    # path = Path("/home/semin/personal_work_ms/span_labeling/results/Qwen__Qwen3-8B_json_occurrence_constrained_wmt-en-ru_results.json")
-    # path = Path("/home/semin/personal_work_ms/span_labeling/results/Qwen__Qwen3-8B_json_constrained_wmt-en-is_results.json")
-    path = Path(
-        "/home/semin/personal_work_ms/span_labeling/results/Qwen__Qwen3-8B_json_constrained_multigec_en_results.json"
-    )
+    raw_response = _get_output_part(raw_response)
 
-    results = json.loads(path.read_text())
-    empty = 0
-    for i, entry in enumerate(results):
-        error_type = analyze_error(entry, "json")
-        if error_type == "Success":
-            #     print(entry["output"]["spans"])
-            continue
-        if error_type.startswith("Empty Prediction"):
-            print("Skipping empty prediction")
-            continue
-        if error_type.startswith("Invalid spans"):
-            # print(f"Entry {i}:")
-            # print(f"Error Type: {error_type}")
+    if not raw_response:
+        return ErrorType.EMPTY_RESPONSE
+    if raw_response == "[]" or raw_response == "{}" or raw_response.lower() == "none":
+        return ErrorType.EMPTY_PREDICTION
+    if method_type == "xml" and raw_response == entry.get("text", ""):
+        # in XML method, if the model just returns the text without any tags, it's an empty prediction, not a format error
+        return ErrorType.EMPTY_PREDICTION
 
-            # print(entry["output"]["raw_response"])
-            continue
-        if error_type.startswith("All Invalid Labels"):
-            continue
+    if not located_spans:
+        if (entry["completion_tokens"] >= 4096 and not thinking) or (
+            entry["completion_tokens"] >= 16384 and thinking
+        ):
+            return ErrorType.FORMAT_MAX_TOKENS_EXCEEDED
 
-        if error_type.startswith("Likely Truncated"):
-            continue
+        return ErrorType.FORMAT_ERROR
 
-        print(f"Entry {i}:")
-        print(f"Error Type: {error_type}")
+    # apart from synthetic datasets, we check label validity if we have valid labels in located spans
+    if dataset_type != "synthetic" and allowed_labels:
+        allowed = set(str(_l) for _l in allowed_labels)
+        invalid = sum(
+            1 for s in located_spans if str(s.get("label", "")) not in allowed
+        )
+        if invalid == len(located_spans):
+            if all(
+                str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
+                for s in located_spans
+            ):
+                return ErrorType.EMPTY_LABEL
 
-        print(entry["output"]["raw_response"])
+            return ErrorType.INVALID_LABEL
+        if invalid > 0:
+            if any(
+                str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
+                for s in located_spans
+            ):
+                return ErrorType.PARTIAL_EMPTY_LABEL
+            return ErrorType.PARTIAL_INVALID_LABEL
+
+    return ErrorType.SUCCESS
 
 
-#     # analyze_error(results[0], "json")
-# # %%
-# entry
-# # %%
-# empty
+def analyze_error(
+    entry: dict,
+) -> ErrorType:
+    """
+    Classify a single result entry into one ErrorType.
 
-# # %%
-# len(results)
-# # %%
+    Args:
+        entry:        A result entry dict (see module docstring).
+    Returns:
+        An ErrorType enum value.
+    """
 
-# %%
+    method_type = entry.get("metadata", {}).get("method", {}).get("type", "unknown")
+    if "json" in method_type:
+        return analyze_error_json_based(entry)
+    else:
+        return analyze_error_other(entry)
