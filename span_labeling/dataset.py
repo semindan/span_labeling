@@ -151,6 +151,6 @@ class WMTDataset(Dataset):
 
 if __name__ == "__main__":
     # Example usage
-    dataset = NerDataset(path="data/custom/ner_en_test.json").load()
+    dataset = NerDataset(path="<path_to_dataset>.json").load()
     for item in dataset:
         print(item)

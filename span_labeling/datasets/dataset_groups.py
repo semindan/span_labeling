@@ -163,6 +163,12 @@ MULTIGEC_ALL = [
     ),
 ]
 
+TEST = [
+    DatasetConfig(
+        type="multigec", path="data/test/test_examples.json", name="test_examples"
+    ),
+]
+
 WMT_ALL = WMT_NEWS + WMT_LITERARY + WMT_SOCIAL
 
 ALL = NER_ALL + WMT_ALL + SYNTHETIC_ALL + MULTIGEC_ALL
@@ -176,4 +182,5 @@ DATASET_GROUPS: dict[str, list[DatasetConfig]] = {
     "synthetic_all": SYNTHETIC_ALL,
     "multigec_all": MULTIGEC_ALL,
     "all": ALL,
+    "test": TEST,
 }

@@ -383,45 +383,50 @@ if __name__ == "__main__":
                     output_path=wmt_output_dir / f"wmt-{languages}-{domain}.json",
                 )
 
-    # # Process MultiGEC dataset
-    # print("\n=== Processing MultiGEC dataset ===")
-    # multigec_data_path = Path("<your_path>/span_labeling_data/multigec/write-and-improve-corpus-2024-v2/multigec-2025-files/local_eval/ref/en-writeandimprove2024-ref1-dev.m2")
-    # multigec_output_dir = Path("<your_path>/span_labeling/data/multigec")
-    # MultiGECParser.parse(
-    #     input_path=multigec_data_path,
-    #     output_path=multigec_output_dir / "multigec_en.json"
-    # )
+    # Process MultiGEC dataset
+    print("\n=== Processing MultiGEC dataset ===")
+    multigec_data_path = Path(
+        "<your_path>/span_labeling_data/multigec/write-and-improve-corpus-2024-v2/multigec-2025-files/local_eval/ref/en-writeandimprove2024-ref1-dev.m2"
+    )
+    multigec_output_dir = Path("<your_path>/span_labeling/data/multigec")
+    MultiGECParser.parse(
+        input_path=multigec_data_path,
+        output_path=multigec_output_dir / "multigec_en.json",
+    )
 
-    # # Process Universal NER datasets
-    # print("\n=== Processing Universal NER datasets ===")
-    # universal_ner_data_path = Path("<your_path>/span_labeling_data/uner-20231114-092426")
-    # universal_ner_output_dir = Path("<your_path>/span_labeling/data/universal_ner")
+    # Process Universal NER datasets
+    print("\n=== Processing Universal NER datasets ===")
+    universal_ner_data_path = Path(
+        "<your_path>/span_labeling_data/uner-20231114-092426"
+    )
+    universal_ner_output_dir = Path("<your_path>/span_labeling/data/universal_ner")
 
-    # for uner_directory in universal_ner_data_path.glob("*"):
-    #     if uner_directory.is_dir():
-    #         for uner_file in uner_directory.glob("*.iob2"):
-    #             if "test" in uner_file.stem:
-    #                 UniversalNERParser.parse(
-    #                     input_path=uner_file,
-    #                     output_path=universal_ner_output_dir / f"uner_{uner_directory.stem}_{uner_file.stem.split('-')[0]}.json"
-    #                 )
+    for uner_directory in universal_ner_data_path.glob("*"):
+        if uner_directory.is_dir():
+            for uner_file in uner_directory.glob("*.iob2"):
+                if "test" in uner_file.stem:
+                    UniversalNERParser.parse(
+                        input_path=uner_file,
+                        output_path=universal_ner_output_dir
+                        / f"uner_{uner_directory.stem}_{uner_file.stem.split('-')[0]}.json",
+                    )
 
-    # # Process synthetic datasets
-    # print("\n=== Processing synthetic datasets ===")
-    # synthetic_datasets = [
-    #     ("character_dataset.json", "english_character_synthetic_data.json"),
-    #     ("german_word_dataset.json", "german_word_synthetic_data.json"),
-    #     ("english_word_dataset.json", "english_word_synthetic_data.json"),
-    #     ("non_overlapping_english_word_dataset.json", "english_non_overlapping_word_synthetic_data.json"),
-    # ]
+    # Process synthetic datasets
+    print("\n=== Processing synthetic datasets ===")
+    synthetic_datasets = [
+        ("character_dataset.json", "english_character_synthetic_data.json"),
+        ("german_word_dataset.json", "german_word_synthetic_data.json"),
+        ("english_word_dataset.json", "english_word_synthetic_data.json"),
+        (
+            "non_overlapping_english_word_dataset.json",
+            "english_non_overlapping_word_synthetic_data.json",
+        ),
+    ]
 
-    # for input_file, output_file in synthetic_datasets:
-    #     input_path = Path(f"<your_path>/input-labeling/{input_file}")
-    #     output_path = Path(f"<your_path>/span_labeling/data/synthetic/{output_file}")
-    #     if input_path.exists():
-    #         SyntheticParser.parse(
-    #             input_path=input_path,
-    #             output_path=output_path
-    #         )
+    for input_file, output_file in synthetic_datasets:
+        input_path = Path(f"<your_path>/input-labeling/{input_file}")
+        output_path = Path(f"<your_path>/span_labeling/data/synthetic/{output_file}")
+        if input_path.exists():
+            SyntheticParser.parse(input_path=input_path, output_path=output_path)
 
-    # print("\n=== All datasets processed ===\n")
+    print("\n=== All datasets processed ===\n")
