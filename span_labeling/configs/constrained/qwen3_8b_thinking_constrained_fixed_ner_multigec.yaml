@@ -1,5 +1,5 @@
 experiment:
-  name: qwen3_8b_thinking_constrained
+  name: qwen3_8b_thinking_constrained_fixed
   models:
     - name: Qwen/Qwen3-8B
       mode: vllm
@@ -10,8 +10,8 @@ experiment:
       top_p: 0.95
 
   dataset_groups:
-    - wmt_all
-    - synthetic_all
+    - ner_all
+    - multigec_all
   methods:
     - type: json
       name: json_constrained
@@ -31,7 +31,8 @@ experiment:
       use_structured_outputs: true
       constrained: true
 
-  seeds: [42, 43, 44, 45, 46]
+  # seeds: [42, 43, 44, 45, 46]
+  seeds: [42]
 
 slurm:
   job_name: exp_Qwen3-8B

@@ -1,5 +1,5 @@
 experiment:
-  name: qwen3_8b_thinking_constrained
+  name: qwen3_8b_thinking
   models:
     - name: Qwen/Qwen3-8B
       mode: vllm
@@ -10,26 +10,32 @@ experiment:
       top_p: 0.95
 
   dataset_groups:
-    - wmt_all
-    - synthetic_all
+    # - ner_all
+    - multigec_all
   methods:
-    - type: json
-      name: json_constrained
-      constrained: true
+    # - type: json
+    #   name: json
 
-    - type: json
-      name: json_structured_constrained
-      use_structured_outputs: true
-      constrained: true
+    # - type: json
+    #   name: json_structured
+    #   use_structured_outputs: true
 
-    - type: json_occurrence
-      name: json_occurrence_constrained
-      constrained: true
+    # - type: json_occurrence
+    #   name: json_occurrence
 
-    - type: json_occurrence
-      name: json_occurrence_structured_constrained
-      use_structured_outputs: true
-      constrained: true
+    # - type: json_occurrence
+    #   name: json_occurrence_structured
+    #   use_structured_outputs: true
+
+    # - type: xml
+    #   name: xml
+
+    # - type: index
+    #   name: index
+  
+    - type: index
+      name: index_enriched
+      enrich_prompt: true
 
   seeds: [42, 43, 44, 45, 46]
 
@@ -43,7 +49,6 @@ providers:
     model: Qwen/Qwen3-8B
     tensor_parallel_size: 1
     max_model_len: 24576
-    logits_processor: span_labeling.constrained_processor:SubstringCopyLogitsProcessor
     reasoning_parser: qwen3
 
 env:

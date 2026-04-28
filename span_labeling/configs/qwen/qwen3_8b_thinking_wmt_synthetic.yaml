@@ -53,9 +53,9 @@ providers:
 
 env:
   cuda_home: /opt/cuda/12.3
-  hf_home: /lnet/troja/work/people/semin/.cache/huggingface
+  hf_home: /lnet/troja/work/people/<your_username>/.cache/huggingface
 
 project:
-  dir: /home/semin/personal_work_ms/span_labeling
+  dir: /home/<your_username>/personal_work_ms/span_labeling
   run_script: span_labeling/experiments/run.py
   max_concurrent_requests: 8

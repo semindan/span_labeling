@@ -9,29 +9,39 @@ experiment:
       top_k: 20
       top_p: 0.95
 
-  dataset_groups:
-    - ner_all
-    - multigec_all
+  # dataset_groups:
+  #   - ner_all
+  #   - multigec_all
+  datasets:
+    - type: ner
+      path: data/universal_ner/uner_tl_trg.json
+      name: uner_tl_trg
+    - type: ner
+      path: data/universal_ner/uner_tl_ugnayan.json
+      name: uner_tl_ugnayan
+    - type: ner
+      path: data/universal_ner/uner_zh_gsd.json
+      name: uner_zh_gsd
   methods:
-    - type: json
-      name: json
+    # - type: json
+    #   name: json
 
-    - type: json
-      name: json_structured
-      use_structured_outputs: true
+    # - type: json
+    #   name: json_structured
+    #   use_structured_outputs: true
 
-    - type: json_occurrence
-      name: json_occurrence
+    # - type: json_occurrence
+    #   name: json_occurrence
 
-    - type: json_occurrence
-      name: json_occurrence_structured
-      use_structured_outputs: true
+    # - type: json_occurrence
+    #   name: json_occurrence_structured
+    #   use_structured_outputs: true
 
-    - type: xml
-      name: xml
+    # - type: xml
+    #   name: xml
 
-    - type: index
-      name: index
+    # - type: index
+    #   name: index
   
     - type: index
       name: index_enriched
@@ -43,6 +53,7 @@ slurm:
   job_name: exp_Qwen3-8B
   num_gpus: 1
   time: "48:00:00"
+  partition: gpu-troja
 
 providers:
   vllm:

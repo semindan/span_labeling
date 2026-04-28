@@ -33,13 +33,13 @@ experiment:
       name: index_enriched
       enrich_prompt: true
 
-  # seeds: [42, 43, 44, 45, 46]
-  seeds: [42]
+  seeds: [42, 43, 44, 45, 46]
+  # seeds: [42]
 
 slurm:
   job_name: exp_gpt_5_mini
   
 project:
-  dir: /home/semin/personal_work_ms/span_labeling
+  dir: /home/<your_username>/personal_work_ms/span_labeling
   run_script: span_labeling/experiments/run.py
   max_concurrent_requests: 8

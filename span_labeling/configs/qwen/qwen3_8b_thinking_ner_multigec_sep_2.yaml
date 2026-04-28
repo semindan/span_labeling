@@ -1,0 +1,164 @@
+experiment:
+  name: qwen3_8b_thinking
+  models:
+    - name: Qwen/Qwen3-8B
+      mode: vllm
+      enable_thinking: true
+      max_completion_tokens: 16384
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+
+#   NER_ALL = [
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_ceb_gja.json", name="uner_ceb_gja"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_da_ddt.json", name="uner_da_ddt"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_de_pud.json", name="uner_de_pud"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_en_ewt.json", name="uner_en_ewt"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_en_pud.json", name="uner_en_pud"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_hr_set.json", name="uner_hr_set"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_pt_bosque.json", name="uner_pt_bosque"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_pt_pud.json", name="uner_pt_pud"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_ru_pud.json", name="uner_ru_pud"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_sk_snk.json", name="uner_sk_snk"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_sr_set.json", name="uner_sr_set"
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_sv_pud.json", name="uner_sv_pud"
+#     ),
+#     DatasetConfig(
+#         type="ner",
+#         path="data/universal_ner/uner_sv_talbanken.json",
+#         name="uner_sv_talbanken",
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_tl_trg.json", name="uner_tl_trg"
+#     ),
+#     DatasetConfig(
+#         type="ner",
+#         path="data/universal_ner/uner_tl_ugnayan.json",
+#         name="uner_tl_ugnayan",
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_zh_gsd.json", name="uner_zh_gsd"
+#     ),
+#     DatasetConfig(
+#         type="ner",
+#         path="data/universal_ner/uner_zh_gsdsimp.json",
+#         name="uner_zh_gsdsimp",
+#     ),
+#     DatasetConfig(
+#         type="ner", path="data/universal_ner/uner_zh_pud.json", name="uner_zh_pud"
+#     ),
+# ]
+
+  datasets:
+    # FORMAT
+    # - type: SyntheticDataset
+    #   path: data/synthetic/english_word_synthetic_data.json
+    #   name: null
+
+    - type: ner
+      path: data/universal_ner/uner_ceb_gja.json
+      name: uner_ceb_gja
+    - type: ner
+      path: data/universal_ner/uner_da_ddt.json
+      name: uner_da_ddt
+    - type: ner
+      path: data/universal_ner/uner_de_pud.json
+      name: uner_de_pud
+    - type: ner
+      path: data/universal_ner/uner_en_ewt.json
+      name: uner_en_ewt
+    - type: ner
+      path: data/universal_ner/uner_en_pud.json
+      name: uner_en_pud
+    - type: ner
+      path: data/universal_ner/uner_hr_set.json
+      name: uner_hr_set
+    - type: ner
+      path: data/universal_ner/uner_pt_bosque.json
+      name: uner_pt_bosque
+    - type: ner
+      path: data/universal_ner/uner_pt_pud.json
+      name: uner_pt_pud
+    - type: ner 
+      path: data/universal_ner/uner_ru_pud.json
+      name: uner_ru_pud
+
+    # #         type="ner", path="data/universal_ner/uner_sk_snk.json", name="uner_sk_snk"
+    - type: ner
+      path: data/universal_ner/uner_sk_snk.json
+      name: uner_sk_snk
+
+  # dataset_groups:
+    # - ner_all
+    # - multigec_all
+  methods:
+    - type: json
+      name: json
+
+    - type: json
+      name: json_structured
+      use_structured_outputs: true
+
+    - type: json_occurrence
+      name: json_occurrence
+
+    - type: json_occurrence
+      name: json_occurrence_structured
+      use_structured_outputs: true
+
+    - type: xml
+      name: xml
+
+    - type: index
+      name: index
+  
+    - type: index
+      name: index_enriched
+      enrich_prompt: true
+
+  seeds: [42, 43, 44, 45, 46]
+
+slurm:
+  job_name: exp_Qwen3-8B
+  num_gpus: 1
+  time: "48:00:00"
+  partition: gpu-troja
+
+providers:
+  vllm:
+    model: Qwen/Qwen3-8B
+    tensor_parallel_size: 1
+    max_model_len: 24576
+    reasoning_parser: qwen3
+
+env:
+  cuda_home: /opt/cuda/12.3
+  hf_home: /lnet/troja/work/people/<your_username>/.cache/huggingface
+
+project:
+  dir: /home/<your_username>/personal_work_ms/span_labeling
+  run_script: span_labeling/experiments/run.py
+  max_concurrent_requests: 8
