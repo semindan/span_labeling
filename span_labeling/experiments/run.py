@@ -71,8 +71,6 @@ def run_experiment_async(config: Settings):
 
         tasks = []
         for i_entry, entry in enumerate(dataset_loaded):
-            # if i_entry > 1:
-            #     break
             tasks.append(bounded_predict(deepcopy(entry)))
 
         raw_results = await tqdm_asyncio.gather(
@@ -135,23 +133,9 @@ def main(config_path: str, port: int = 8057):
 
     print(f"Datasets: {[dataset.name for dataset in datasets]}")
 
-    # if settings.experiment.dataset_groups:
-    #     for group_name in settings.experiment.dataset_groups:
-    #         if group_name not in DATASET_GROUPS:
-    #             raise ValueError(f"Dataset group {group_name} not found in DATASET_GROUPS.")
-    #         datasets.extend(DATASET_GROUPS[group_name])
-
-    # print(f" AFTER Datasets: {[dataset.name for dataset in datasets]}")
-
     methods = [settings.method] if settings.method else settings.experiment.methods
     seeds = [settings.seed] if settings.seed else settings.experiment.seeds
 
-    # print(f"Models: {[model.name for model in models]}")
-    # print(f"Methods: {[method.name for method in methods]}")
-    # print(f"Datasets: {[dataset.name for dataset in datasets]}")
-    # print(f"Seeds: {seeds}")
-
-    # print("dataset groups: ", settings.experiment.dataset_groups)
     for model, method, dataset, seed in product(models, methods, datasets, seeds):
         print(
             f"Model: {model.name}, Method: {method.name}, Dataset: {dataset.name}, Seed: {seed}"
