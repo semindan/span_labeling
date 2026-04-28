@@ -1,6 +1,6 @@
 .venv
 .env
-results/*
+results/*.json
 logs
 torch_compile_cache
 __pycache__
