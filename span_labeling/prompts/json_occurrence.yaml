@@ -72,48 +72,6 @@ prompts:
         {"text": "brought", "label": "M", "occurrence": 1}
       ]
 
-  # - method: json_occurrence
-  #   dataset: wmt
-  #   task: "Identify errors in the translation by comparing it to the source text."
-  #   format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR", "occurrence": "which occurrence (1, 2, 3...)"}]'
-  #   label_dict:
-  #     MINOR: "Minor error (understandable, small mistake)"
-  #     MAJOR: "Major error (changes meaning, serious mistake)"
-  #   note: |
-  #     Analyze the translation for accuracy compared to the source text.
-  #     Extract the exact text spans from the TRANSLATION that contain errors.
-    
-  #     Common error types:
-  #     - Wrong verb tense/form
-  #     - Incorrect case or gender
-  #     - Wrong word choice
-  #     - Missing or added words
-  #     - Grammar mistakes
-  #     - Punctuation errors
-    
-  #     Return a valid JSON array only.
-  #     - "text": copy the exact span from the translation (minimal span containing the error)
-  #     - "label": MINOR for small mistakes, MAJOR for meaning-changing errors
-  #     - "occurrence": which occurrence of this text (1 = first, 2 = second, etc.)
-    
-  #     If no errors exist, return an empty array: []
-  #   last_line: *output_line
-  #   examples:
-  #   - |
-  #     Source: The boy gave his sister the red ball yesterday.
-  #     Translation: Der Junge gab seine Schwester der rote Ball gestern .
-    
-  #     Explanation:
-  #     - "gab seine Schwester" - wrong case for "sister"
-  #     - "rote" - wrong gender agreement (should be "roten")
-  #     - "gestern ." - extra space before period
-    
-  #     Output:
-  #     [
-  #       {"text": "gab seine Schwester", "label": "MAJOR", "occurrence": 1},
-  #       {"text": "rote", "label": "MAJOR", "occurrence": 1},
-  #       {"text": "gestern .", "label": "MINOR", "occurrence": 1}
-  #     ]
   - method: json_occurrence
     dataset: wmt
     task: "Identify translation errors by comparing the translation to the source text."

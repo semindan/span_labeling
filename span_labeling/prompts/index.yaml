@@ -65,47 +65,6 @@ prompts:
       [27:28] = U
       [47:53] = R
 
-
-  # - method: index
-  #   dataset: wmt
-  #   task: "Identify spans in the translation that contain errors when compared to the source text."
-  #   format: "[start:end] = LABEL"
-  #   label_dict:
-  #     MINOR: "Minor error (understandable, small mistake)"
-  #     MAJOR: "Major error (changes meaning, serious mistake)"
-  #   note: |
-  #     Analyze the translation for accuracy compared to the source text.
-  #     Mark spans in the TRANSLATION that are incorrect.
-    
-  #     Common error types:
-  #     - Wrong verb tense/form
-  #     - Incorrect case or gender
-  #     - Wrong word choice
-  #     - Missing or added words
-  #     - Grammar mistakes
-  #     - Punctuation errors
-    
-  #     IMPORTANT: Character positions are 0-indexed and refer to the TRANSLATION text.
-  #     - First character is at position 0
-  #     - Spaces count as characters
-  #     - start is inclusive, end is exclusive
-  #     - Identify the minimal span containing each error
-  #   last_line: *output_line
-  #   examples:
-  #   - |
-  #     Source: The boy gave his sister the red ball yesterday.
-  #     Translation: Der Junge gab seine Schwester der rote Ball gestern .
-    
-  #     Explanation:
-  #     - "gab seine Schwester" (chars 10-29) - wrong case for "sister"
-  #     - "rote" (chars 34-38) - wrong gender agreement
-  #     - "gestern ." (chars 44-53) - extra space before period
-    
-  #     Output:
-  #     [10:29] = MAJOR
-  #     [34:38] = MAJOR
-  #     [44:53] = MINOR
-
   - method: index
     dataset: wmt
     task: "Identify translation errors by comparing the translation to the source text."
