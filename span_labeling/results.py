@@ -282,10 +282,33 @@ def export_csv(results_dir: str, output_csv: str) -> None:
 
     df = pd.DataFrame.from_records(records)
     df = df.fillna(0)
+
+    DEDUP_COLS = [
+        "experiment_name",
+        "model",
+        "method_name",
+        "dataset_name",
+        "seed",
+        "constrained",
+        "thinking",
+        "structured",
+    ]
+
+    df["experiment_timestamp"] = pd.to_datetime(
+        df["experiment_timestamp"], format="%Y%m%d_%H%M%S", errors="coerce"
+    )
+
+    print(f"\nDataFrame before deduplication ({len(df)} rows):", flush=True)
+    df = (
+        df.sort_values("experiment_timestamp", ascending=False)
+        .drop_duplicates(subset=DEDUP_COLS, keep="first")
+        .reset_index(drop=True)
+    )
+    print(f"DataFrame after deduplication ({len(df)} rows):", flush=True)
     df.to_csv(output_csv, index=False)
     print(f"\nExported results to {output_csv}")
     return df
 
 
 if __name__ == "__main__":
-    export_csv("results", "results/_results.csv")
+    export_csv("results", "results/results.csv")
