@@ -1,6 +1,6 @@
 # Span Labeling with Large Language Models
 
-Code accompanying the master's thesis *Span Labeling with Decoder-Only Large Language Models*. The project compares four span labeling formats for
+Code accompanying the paper *Strategies for Span Labeling with Large Language Models*. The project compares four span labeling formats for
 decoder-only LLMs (XML tagging, JSON-based extraction, JSON with occurrence
 indices, and positional indices) across NER, grammatical error correction
 (MultiGEC), translation quality estimation (WMT24), and a synthetic pattern
