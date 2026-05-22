@@ -95,7 +95,7 @@ skipped. Set it to `false` in the config to force re-runs.
 
 Each experiment writes `<experiment>_<model>_<method>_<dataset>_<seed>_<timestamp>_results.json`
 into the output directory. The summary table with results from all experiment runs
-reported in the thesis is here: `results/results.csv` —
+reported in the paper is here: `results/results.csv` —
 the analysis notebooks and figures read directly from that file.
 
 To regenerate the CSV from scratch (for example after adding new runs), use:
