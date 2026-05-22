@@ -28,8 +28,8 @@ experiment:
       use_structured_outputs: true
       constrained: true
 
-  # seeds: [42, 43, 44, 45, 46]
-  seeds: [42]
+  seeds: [42, 43, 44, 45, 46]
+  # seeds: [42]
 
 slurm:
   job_name: exp_Gemma-4-31B
@@ -48,10 +48,10 @@ providers:
 
 env:
   cuda_home: /opt/cuda/12.3
-  # hf_home: /lnet/troja/work/people/<your_username>/.cache/huggingface
-  hf_home: /lnet/work/people/<your_username>/.cache/huggingface/
+  # hf_home: /lnet/troja/work/people/semin/.cache/huggingface
+  hf_home: /lnet/work/people/semin/.cache/huggingface/
 
 project:
-  dir: /home/<your_username>/personal_work_ms/span_labeling
+  dir: /home/semin/personal_work_ms/span_labeling
   run_script: span_labeling/experiments/run.py
   max_concurrent_requests: 8
