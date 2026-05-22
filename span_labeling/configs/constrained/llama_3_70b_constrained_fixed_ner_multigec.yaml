@@ -1,17 +1,13 @@
 experiment:
-  name: qwen3_8b_thinking_constrained_fixed
+  name: llama_3_70b_constrained_fixed
   models:
-    - name: Qwen/Qwen3-8B
+    - name: meta-llama/Llama-3.3-70B-Instruct
       mode: vllm
-      enable_thinking: true
-      max_completion_tokens: 16384
-      temperature: 0.6
-      top_k: 20
-      top_p: 0.95
+      max_completion_tokens: 4096
 
   dataset_groups:
-    - wmt_all
-    - synthetic_all
+    - ner_all
+    - multigec_all
   methods:
     - type: json
       name: json_constrained
@@ -31,25 +27,26 @@ experiment:
       use_structured_outputs: true
       constrained: true
 
-  # seeds: [42, 43, 44, 45, 46]
-  seeds: [42]
+  seeds: [42, 43, 44, 45, 46]
+  # seeds: [42]
 
 slurm:
-  job_name: exp_Qwen3-8B
-  num_gpus: 1
+  job_name: exp_Llama-3.3-70B
+  num_gpus: 4
   time: "48:00:00"
+  partition: gpu-troja
 
 providers:
   vllm:
-    model: Qwen/Qwen3-8B
-    tensor_parallel_size: 1
-    max_model_len: 24576
+    model: meta-llama/Llama-3.3-70B-Instruct
+    tensor_parallel_size: 4
     logits_processor: span_labeling.constrained_processor:SubstringCopyLogitsProcessor
-    reasoning_parser: qwen3
+    max_model_len: 8192
+    gpu_mem_util: 0.95
 
 env:
   cuda_home: /opt/cuda/12.3
-  hf_home: /lnet/troja/work/people/semin/.cache/huggingface
+  hf_home: /lnet/work/people/semin/.cache/huggingface/
 
 project:
   dir: /home/semin/personal_work_ms/span_labeling
