@@ -7,6 +7,7 @@ output_line: &output_line "Tagged text:"
 prompts:
   - method: xml
     dataset: ner
+    variant: v1
     task: "Extract named entities (PER, ORG, LOC) from the text."
     format: '<entity type="LABEL">text</entity>'
     labels: ["PER", "ORG", "LOC"]
@@ -22,6 +23,7 @@ prompts:
 
   - method: xml
     dataset: error
+    variant: v1
     task: "Identify grammatical errors in the text. Only tag the incorrect words."
     format: '<error type="LABEL">text</error>'
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
@@ -30,6 +32,7 @@ prompts:
 
   - method: xml
     dataset: synthetic
+    variant: v1
     task: "Find all text spans that match the given pattern queries."
     format: '<match>text</match>'
     note: *note_xml
@@ -45,6 +48,7 @@ prompts:
 
   - method: xml
     dataset: multigec
+    variant: v1
     task: "Identify grammatical errors in learner-written text."
     format: '<error type="TYPE">text</error>'
     label_dict:
@@ -62,6 +66,7 @@ prompts:
 
   - method: xml
     dataset: wmt
+    variant: v1
     task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."
     format: '<error type="LEVEL">text</error>'
     label_dict:

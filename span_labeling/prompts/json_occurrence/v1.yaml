@@ -1,14 +1,17 @@
-note_json: &note_json |
+
+note_occurrence: &note_occurrence |
   Return a valid JSON array only.
+  If a word appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
 output_line: &output_line "JSON Output:"
 
 prompts:
-  - method: json
+  - method: json_occurrence
     dataset: ner
+    variant: v1
     task: "Extract named entities (PER, ORG, LOC) from the text."
-    format: '[{"text": "exact text span from input", "label": "category (PER, ORG, LOC)"}]'
+    format: '[{"text": "exact span from input", "label": "category (PER, ORG, LOC)", "occurrence": "which occurrence (1, 2, 3...)"}]'
     labels: ["PER", "ORG", "LOC"]
-    note: *note_json
+    note: *note_occurrence
     last_line: *output_line
     examples:
     - |
@@ -16,25 +19,27 @@ prompts:
 
       Output:
       [
-        {"text": "Lina Berg", "label": "PER"},
-        {"text": "AstraTech", "label": "ORG"},
-        {"text": "Stockholm", "label": "LOC"},
-        {"text": "Northvale University", "label": "ORG"}
+        {"text": "Lina Berg", "label": "PER", "occurrence": 1},
+        {"text": "AstraTech", "label": "ORG", "occurrence": 1},
+        {"text": "Stockholm", "label": "LOC", "occurrence": 1},
+        {"text": "Northvale University", "label": "ORG", "occurrence": 1}
       ]
 
-  - method: json
+  - method: json_occurrence
     dataset: error
+    variant: v1
     task: "Identify grammatical errors in the text."
-    format: '[{"text": "exact text span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)"}]'
+    format: '[{"text": "exact span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)", "occurrence": "which occurrence (1, 2, 3...)"}]'
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
-    note: *note_json
+    note: *note_occurrence
     last_line: *output_line
 
-  - method: json
+  - method: json_occurrence
     dataset: synthetic
+    variant: v1
     task: "Find all text spans that match the given pattern queries."
-    format: '[{"text": "exact span or pattern from input"}]'
-    note: *note_json
+    format: '[{"text": "exact span from input", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    note: *note_occurrence
     last_line: *output_line
     examples:
     - |
@@ -43,20 +48,21 @@ prompts:
 
       Output:
       [
-        {"text": "light"},
-        {"text": "sad"},
-        {"text": "love"}
+        {"text": "light", "occurrence": 1},
+        {"text": "sad", "occurrence": 1},
+        {"text": "love", "occurrence": 1}
       ]
 
-  - method: json
+  - method: json_occurrence
     dataset: multigec
+    variant: v1
     task: "Identify grammatical errors in learner-written text."
     format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
     label_dict:
       R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
       M: "Missing: word is missing (the first non-whitespace token right before the error)"
       U: "Unnecessary: extra word"
-    note: *note_json
+    note: *note_occurrence
     last_line: *output_line
     examples:
     - |
@@ -64,22 +70,23 @@ prompts:
 
       Output:
       [
-        {"text": "go", "label": "R"},
-        {"text": ",", "label": "U"},
-        {"text": "forget", "label": "R"},
-        {"text": "brought", "label": "M"}
+        {"text": "go", "label": "R", "occurrence": 1},
+        {"text": ",", "label": "U", "occurrence": 1},
+        {"text": "forget", "label": "R", "occurrence": 1},
+        {"text": "brought", "label": "M", "occurrence": 1}
       ]
 
-
-  - method: json
+  - method: json_occurrence
     dataset: wmt
+    variant: v1
     task: "Identify translation errors by comparing the translation to the source text."
-    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR"}]'
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR", "occurrence": "which occurrence (1, 2, 3...)"}]'
     label_dict:
       MINOR: "Minor error (understandable, small mistake)"
       MAJOR: "Major error (changes meaning, serious mistake)"
     note: |
       Extract the exact text spans from the TRANSLATION that contain errors.
+      If a word or phrase appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
       Return a valid JSON array only.
       If no errors exist, return an empty array: []
     last_line: *output_line
@@ -89,7 +96,7 @@ prompts:
       Translation: Der Junge gab seine Schwester der rote Ball gestern .
       Output:
       [
-        {"text": "gab seine Schwester", "label": "MAJOR"},
-        {"text": "rote", "label": "MAJOR"},
-        {"text": "gestern .", "label": "MINOR"}
+        {"text": "gab seine Schwester", "label": "MAJOR", "occurrence": 1},
+        {"text": "rote", "label": "MAJOR", "occurrence": 1},
+        {"text": "gestern .", "label": "MINOR", "occurrence": 1}
       ]

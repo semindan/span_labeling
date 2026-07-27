@@ -15,7 +15,12 @@ class SpanLabeler(SpanLabelerBase):
         self.config = config
 
     def format_prompt(self, entry: dict) -> str:
-        return build_prompt(self.key, entry["key"], entry)
+        return build_prompt(
+            self.key,
+            entry["key"],
+            entry,
+            variant=self.config.method.prompt_variant,
+        )
 
     @abstractmethod
     def parse_response(self, entry: dict) -> List[Dict]:

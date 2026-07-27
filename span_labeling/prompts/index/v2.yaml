@@ -1,0 +1,93 @@
+note_index: &note_index |
+  Character offsets follow Python slicing conventions.
+  - Indexing begins at 0 (the first character has position 0).
+  - Every character counts, including whitespace.
+  - The start offset is inclusive; the end offset is exclusive.
+output_line: &output_line "Output:"
+
+prompts:
+  - method: index
+    dataset: ner
+    variant: v2
+    task: "Locate mentions of named entities in the passage below and label each one as a person (PER), organization (ORG), or location (LOC)."
+    format: "[start:end] = LABEL"
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_index
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [0:9] = PER
+      [17:26] = ORG
+      [30:39] = LOC
+      [71:91] = ORG
+
+  - method: index
+    dataset: error
+    variant: v2
+    task: "Locate grammatical mistakes in the passage below and assign each one a category."
+    format: "[start:end] = LABEL"
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_index
+    last_line: *output_line
+
+  - method: index
+    dataset: synthetic
+    variant: v2
+    task: "Locate every substring of the passage that satisfies the pattern described in the task above."
+    format: "[start:end] = MATCH"
+    note: *note_index
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [65:71] = MATCH
+      [86:90] = MATCH
+      [104:109] = MATCH
+
+  - method: index
+    dataset: multigec
+    variant: v2
+    task: "Locate grammatical errors made by a language learner in the passage below and categorize each one."
+    format: "[start:end] = LABEL"
+    label_dict:
+      R: "Replace: a wrong word that needs to be replaced (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER)"
+      M: "Missing: a word is missing"
+      U: "Unnecessary: an extra word is present"
+    note: *note_index
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework .
+      Output:
+      [4:6] = R
+      [27:28] = U
+      [47:53] = R
+
+  - method: index
+    dataset: wmt
+    variant: v2
+    task: "Compare the translation to its source and locate every span in the translation that constitutes an error, categorizing each by severity."
+    format: "[start:end] = LABEL"
+    label_dict:
+      MINOR: "Minor error (understandable, small mistake)"
+      MAJOR: "Major error (changes meaning, serious mistake)"
+    note: |
+      Report error spans in the TRANSLATION using character offsets.
+      Offsets are 0-indexed and follow Python slicing conventions (the first
+      character has position 0, whitespace counts, start is inclusive and end
+      is exclusive).
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      [10:29] = MAJOR
+      [34:38] = MAJOR
+      [44:53] = MINOR

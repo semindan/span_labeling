@@ -162,6 +162,7 @@ class MethodConfig(BaseModel):
     use_structured_outputs: bool = False
     constrained: bool = False
     enrich_prompt: bool = False
+    prompt_variant: str = "v1"
 
 
 class ExperimentSettings(BaseModel):

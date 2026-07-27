@@ -8,6 +8,7 @@ output_line: &output_line "Output:"
 prompts:
   - method: index
     dataset: ner
+    variant: v1
     task: "Extract named entities (PER, ORG, LOC) from the text."
     format: "[start:end] = LABEL"
     labels: ["PER", "ORG", "LOC"]
@@ -25,6 +26,7 @@ prompts:
 
   - method: index
     dataset: error
+    variant: v1
     task: "Identify grammatical errors in the text and classify them."
     format: "[start:end] = LABEL"
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
@@ -33,6 +35,7 @@ prompts:
 
   - method: index
     dataset: synthetic
+    variant: v1
     task: "Find all text spans that match the given pattern queries."
     format: "[start:end] = MATCH"
     note: *note_index
@@ -49,6 +52,7 @@ prompts:
 
   - method: index
     dataset: multigec
+    variant: v1
     task: "Identify grammatical errors in learner-written text."
     format: "[start:end] = LABEL"
     label_dict:
@@ -67,6 +71,7 @@ prompts:
 
   - method: index
     dataset: wmt
+    variant: v1
     task: "Identify translation errors by comparing the translation to the source text."
     format: "[start:end] = LABEL"
     label_dict:

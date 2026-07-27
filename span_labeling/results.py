@@ -236,6 +236,7 @@ def export_csv(results_dir: str, output_csv: str) -> None:
         structured = file_result_metadata["method"]["use_structured_outputs"]
         method_type = file_result_metadata["method"]["type"]
         method_name = file_result_metadata["method"]["name"]
+        prompt_variant = file_result_metadata["method"].get("prompt_variant", "v1")
         dataset_type = file_result_metadata["dataset"]["type"]
         dataset_name = file_result_metadata["dataset"]["name"]
         seed = file_result_metadata.get("seed", "unknown")
@@ -249,6 +250,7 @@ def export_csv(results_dir: str, output_csv: str) -> None:
             "dataset_name": dataset_name,
             "method_type": method_type,
             "method_name": method_name,
+            "prompt_variant": prompt_variant,
             "seed": seed,
             "thinking": thinking,
             "constrained": constrained,
@@ -292,6 +294,7 @@ def export_csv(results_dir: str, output_csv: str) -> None:
         "constrained",
         "thinking",
         "structured",
+        "prompt_variant",
     ]
 
     df["experiment_timestamp"] = pd.to_datetime(

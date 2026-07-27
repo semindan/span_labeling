@@ -1,0 +1,87 @@
+note_index: &note_index |
+  0-indexed positions. Whitespace counts. Half-open interval [start, end).
+output_line: &output_line "Output:"
+
+prompts:
+  - method: index
+    dataset: ner
+    variant: v3
+    task: "Tag PER, ORG, LOC mentions in the text."
+    format: "[start:end] = LABEL"
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_index
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [0:9] = PER
+      [17:26] = ORG
+      [30:39] = LOC
+      [71:91] = ORG
+
+  - method: index
+    dataset: error
+    variant: v3
+    task: "Tag grammatical errors in the text."
+    format: "[start:end] = LABEL"
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_index
+    last_line: *output_line
+
+  - method: index
+    dataset: synthetic
+    variant: v3
+    task: "Return spans matching the query."
+    format: "[start:end] = MATCH"
+    note: *note_index
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [65:71] = MATCH
+      [86:90] = MATCH
+      [104:109] = MATCH
+
+  - method: index
+    dataset: multigec
+    variant: v3
+    task: "Tag learner errors."
+    format: "[start:end] = LABEL"
+    label_dict:
+      R: "Replace (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER)"
+      M: "Missing word"
+      U: "Unnecessary word"
+    note: *note_index
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework .
+      Output:
+      [4:6] = R
+      [27:28] = U
+      [47:53] = R
+
+  - method: index
+    dataset: wmt
+    variant: v3
+    task: "Tag error spans in the translation against the source."
+    format: "[start:end] = LABEL"
+    label_dict:
+      MINOR: "Minor (small mistake)"
+      MAJOR: "Major (changes meaning)"
+    note: |
+      Offsets are in the TRANSLATION. 0-indexed, whitespace counts, [start, end).
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      [10:29] = MAJOR
+      [34:38] = MAJOR
+      [44:53] = MINOR
