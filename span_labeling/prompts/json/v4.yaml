@@ -1,0 +1,99 @@
+note_json: &note_json |
+  The output must be a valid JSON array. Do not include any other text.
+output_line: &output_line "JSON Output:"
+
+prompts:
+  - method: json
+    dataset: ner
+    variant: v4
+    task: "The task is to identify named-entity mentions in the input text and assign each one a category from {PER, ORG, LOC}."
+    format: '[{"text": "exact text span from input", "label": "category (PER, ORG, LOC)"}]'
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_json
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [
+        {"text": "Lina Berg", "label": "PER"},
+        {"text": "AstraTech", "label": "ORG"},
+        {"text": "Stockholm", "label": "LOC"},
+        {"text": "Northvale University", "label": "ORG"}
+      ]
+
+  - method: json
+    dataset: error
+    variant: v4
+    task: "The task is to find grammatical errors in the input text and categorize each one."
+    format: '[{"text": "exact text span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)"}]'
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_json
+    last_line: *output_line
+
+  - method: json
+    dataset: synthetic
+    variant: v4
+    task: "The task is to return all spans of the input text that match the pattern specified in the query."
+    format: '[{"text": "exact span or pattern from input"}]'
+    note: *note_json
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [
+        {"text": "light"},
+        {"text": "sad"},
+        {"text": "love"}
+      ]
+
+  - method: json
+    dataset: multigec
+    variant: v4
+    task: "The task is to identify grammatical errors in text written by a language learner and label each one by category."
+    format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
+    label_dict:
+      R: "Replace edit — the word is wrong; specify subcategory VERB / NOUN / DET / PREP / SPELL / PUNCT / WO / OTHER"
+      M: "Missing edit — a word is absent. Use the first non-whitespace token immediately preceding the missing position as the span."
+      U: "Unnecessary edit — a word is superfluous"
+    note: *note_json
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
+
+      Output:
+      [
+        {"text": "go", "label": "R"},
+        {"text": ",", "label": "U"},
+        {"text": "forget", "label": "R"},
+        {"text": "brought", "label": "M"}
+      ]
+
+  - method: json
+    dataset: wmt
+    variant: v4
+    task: "The task is to compare the translation to the source and identify all error spans in the translation, categorized by severity."
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR"}]'
+    label_dict:
+      MINOR: "A minor issue that does not obscure the meaning"
+      MAJOR: "A major issue that changes what the sentence means"
+    note: |
+      The output must list the exact error spans copied from the
+      TRANSLATION as a valid JSON array with no other text. If the
+      translation is error-free, the output is [] (an empty array).
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      [
+        {"text": "gab seine Schwester", "label": "MAJOR"},
+        {"text": "rote", "label": "MAJOR"},
+        {"text": "gestern .", "label": "MINOR"}
+      ]

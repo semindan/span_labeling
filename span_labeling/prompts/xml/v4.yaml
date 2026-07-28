@@ -1,0 +1,83 @@
+note_xml: &note_xml |
+  The output is a full rewrite of the input text with XML tags around the
+  targeted spans. All non-tagged portions of the original text must be
+  preserved verbatim.
+output_line: &output_line "Tagged text:"
+
+prompts:
+  - method: xml
+    dataset: ner
+    variant: v4
+    task: "The task is to identify named-entity mentions in the input text and assign each one a category from {PER, ORG, LOC}."
+    format: '<entity type="LABEL">text</entity>'
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      <entity type="PER">Lina Berg</entity> joined <entity type="ORG">AstraTech</entity> in <entity type="LOC">Stockholm</entity> after finishing her studies at <entity type="ORG">Northvale University</entity>.
+
+  - method: xml
+    dataset: error
+    variant: v4
+    task: "The task is to find grammatical errors in the input text and categorize each one."
+    format: '<error type="LABEL">text</error>'
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_xml
+    last_line: *output_line
+
+  - method: xml
+    dataset: synthetic
+    variant: v4
+    task: "The task is to return all spans of the input text that match the pattern specified in the query."
+    format: '<match>text</match>'
+    note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      house wake think grey calm wake think ship fast wake think no air <match>light</match> music play air <match>sad</match> read dark air <match>love</match> fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+  - method: xml
+    dataset: multigec
+    variant: v4
+    task: "The task is to identify grammatical errors in text written by a language learner and label each one by category."
+    format: '<error type="TYPE">text</error>'
+    label_dict:
+      R: "Replace edit — the word is wrong; specify subcategory VERB / NOUN / DET / PREP / SPELL / PUNCT / WO / OTHER"
+      M: "Missing edit — a word is absent. Mark its position with an empty XML tag."
+      U: "Unnecessary edit — a word is superfluous; the corrected form omits it (empty string correction)."
+    note: *note_xml
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
+
+      Output:
+      She <error type="R">go</error> to school every day <error type="U">,</error> but yesterday she <error type="R">forget</error> her homework . She brought <error type="M"></error> book to class .
+
+  - method: xml
+    dataset: wmt
+    variant: v4
+    task: "The task is to compare the translation to the source and identify all error spans in the translation, categorized by severity."
+    format: '<error type="LEVEL">text</error>'
+    label_dict:
+      MINOR: "A minor issue that does not obscure the meaning"
+      MAJOR: "A major issue that changes what the sentence means"
+    note: |
+      The output is a full rewrite of the TRANSLATION with XML tags around
+      error spans only. Non-error text is preserved verbatim. When the
+      translation has no errors, output it unchanged without any tags.
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      Der Junge <error type="MAJOR">gab seine Schwester</error> der <error type="MAJOR">rote</error> Ball <error type="MINOR">gestern .</error>

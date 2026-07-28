@@ -1,0 +1,102 @@
+note_occurrence: &note_occurrence |
+  You must return your answer as a single valid JSON array with no prose
+  around it. If a target span occurs multiple times, use the "occurrence"
+  field to disambiguate (1 = first, 2 = second, ...).
+output_line: &output_line "JSON Output:"
+
+prompts:
+  - method: json_occurrence
+    dataset: ner
+    variant: v3
+    task: "You are annotating named entities. Mark every mention of a person (PER), organization (ORG), or location (LOC) in the text below."
+    format: '[{"text": "exact span from input", "label": "category (PER, ORG, LOC)", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_occurrence
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [
+        {"text": "Lina Berg", "label": "PER", "occurrence": 1},
+        {"text": "AstraTech", "label": "ORG", "occurrence": 1},
+        {"text": "Stockholm", "label": "LOC", "occurrence": 1},
+        {"text": "Northvale University", "label": "ORG", "occurrence": 1}
+      ]
+
+  - method: json_occurrence
+    dataset: error
+    variant: v3
+    task: "You are proofreading the text. Mark each grammatical mistake you find and label it."
+    format: '[{"text": "exact span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_occurrence
+    last_line: *output_line
+
+  - method: json_occurrence
+    dataset: synthetic
+    variant: v3
+    task: "You are running a regex-style search. Return every span in the text that matches the query."
+    format: '[{"text": "exact span from input", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    note: *note_occurrence
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [
+        {"text": "light", "occurrence": 1},
+        {"text": "sad", "occurrence": 1},
+        {"text": "love", "occurrence": 1}
+      ]
+
+  - method: json_occurrence
+    dataset: multigec
+    variant: v3
+    task: "You are correcting a language learner. Mark each grammatical error in their text and label its type."
+    format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
+    label_dict:
+      R: "Replace: this word is incorrect and should be replaced (subcategory: VERB / NOUN / DET / PREP / SPELL / PUNCT / WO / OTHER)"
+      M: "Missing: a word is missing here. Point at the missing spot by giving the first non-whitespace token that appears right before it."
+      U: "Unnecessary: this word should be removed"
+    note: *note_occurrence
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
+
+      Output:
+      [
+        {"text": "go", "label": "R", "occurrence": 1},
+        {"text": ",", "label": "U", "occurrence": 1},
+        {"text": "forget", "label": "R", "occurrence": 1},
+        {"text": "brought", "label": "M", "occurrence": 1}
+      ]
+
+  - method: json_occurrence
+    dataset: wmt
+    variant: v3
+    task: "You are evaluating a translation. Read the source, then mark every error you find in the translation and label its severity."
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    label_dict:
+      MINOR: "Minor severity — the reader still gets the point"
+      MAJOR: "Major severity — the meaning is affected"
+    note: |
+      You must return the exact error spans from the TRANSLATION as a valid
+      JSON array with no prose around it. If a span appears more than once
+      in the translation, disambiguate with the "occurrence" field
+      (1 = first match, 2 = second, ...). When there are no errors, return [].
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      [
+        {"text": "gab seine Schwester", "label": "MAJOR", "occurrence": 1},
+        {"text": "rote", "label": "MAJOR", "occurrence": 1},
+        {"text": "gestern .", "label": "MINOR", "occurrence": 1}
+      ]
