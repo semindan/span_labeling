@@ -1,3 +1,4 @@
+# %%
 from __future__ import annotations
 from enum import Enum
 
@@ -126,9 +127,10 @@ def analyze_error_json_based(entry: dict) -> ErrorType:
             elif json_issue.msg == "Expecting ':' delimiter":
                 return ErrorType.FORMAT_UNESCAPED_QUOTES
             else:
-                print(f"Raw response: {raw_response}")
-                print(f"JSON parsing error: {json_issue}")
-                print(f"Message: {json_issue.msg}")
+                pass
+                # print(f"Raw response: {raw_response}")
+                # print(f"JSON parsing error: {json_issue}")
+                # print(f"Message: {json_issue.msg}")
 
         return ErrorType.FORMAT_ERROR
 
@@ -157,20 +159,32 @@ def analyze_error_json_based(entry: dict) -> ErrorType:
         invalid = sum(
             1 for s in located_spans if str(s.get("label", "")) not in allowed
         )
+
+        # located_invalid = [s for s in located_spans if str(s.get("label", "")) not in allowed]
+        # located_empty = [
+        #     s  for s in located_spans if str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
+        # ]
         if invalid == len(located_spans):
             if all(
                 str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
                 for s in located_spans
             ):
+                # print(f"ALL Empty Located spans: {located_empty}")
                 return ErrorType.EMPTY_LABEL
 
+            # print(f"ALL Located spans: {located_spans}")
+            # print(f"ALL Invalid Located spans: {located_invalid}")
             return ErrorType.INVALID_LABEL
         if invalid > 0:
             if any(
                 str(s.get("label", "")) == "" or str(s.get("label", "")) == "None"
                 for s in located_spans
             ):
+                # print(f"PARTIAL Empty Located spans: {located_empty}")
                 return ErrorType.PARTIAL_EMPTY_LABEL
+
+            # print(f"ALL Located spans: {located_spans}")
+            # print(f"PARTIAL Invalid Located spans: {located_invalid}")
             return ErrorType.PARTIAL_INVALID_LABEL
 
     return ErrorType.SUCCESS
@@ -246,3 +260,160 @@ def analyze_error(
         return analyze_error_json_based(entry)
     else:
         return analyze_error_other(entry)
+
+
+# #%%
+# if __name__ == "__main__":
+#     from pathlib import Path
+#     results_dir = "/home/semin/personal_work_ms/span_labeling/results"
+#     error_files = []
+#     for filename in Path(results_dir).glob("*.json"):
+#         if "constrained" in filename.stem and "fixed" not in filename.stem:
+#             continue
+
+#         # if "synthetic" not in filename.stem:
+#         #     continue
+#         if "structured" in filename.stem and "json" in filename.stem:
+#             with open(filename, "r") as f:
+#                 data = json.loads(f.read())
+
+#             errors = {}
+#             for entry in data:
+#                 error_type = analyze_error(entry)
+#                 errors[error_type] = errors.get(error_type, 0) + 1
+#                 if "label" in error_type.value and filename not in error_files:
+#                     print(f"{filename.stem}: {errors}")
+#                     error_files.append(filename)
+#                     break
+
+# # %%
+# # entry
+# # # %%
+# # entry["response"]
+# # %%
+# error_files
+# # %%
+# path_to_check = "/home/semin/personal_work_ms/span_labeling/results/gpt_5_mini_vanilla_gpt-5-mini_json_occurrence_structured_english_non_overlapping_word_synthetic_data_44_20260410_201456_results.json"
+
+# with open(path_to_check, "r") as f:
+#     data = json.loads(f.read())
+#     for entry in data:
+#         error_type = analyze_error(entry)
+#         if isinstance(error_type, dict):
+#             break
+#         # error_type = analyze_error(entry)
+
+# # %%
+# error_type
+# # %%
+# from span_labeling.methods.occurrence_method import JSONOccurrenceSpanLabeler
+
+# labeler = JSONOccurrenceSpanLabeler(None, None)
+
+# # labeler.parse_response(error_type)
+# labeler.parse_response_invalid(entry)
+
+
+# #%%
+# from pydantic import BaseModel
+# def parse_response_invalid(entry: dict) -> list[dict]:
+#     try:
+#         response = entry["response"]
+#         if "Output:" in response:
+#             response = response.split("Output:")[-1].strip()
+#         if "```json" in response:
+#             response = response.split("```json")[-1].split("```")[0].strip()
+
+#         # Check if response is already a list (from structured outputs)
+#         if isinstance(response, list):
+#             # Convert Pydantic instances to dicts
+#             data = []
+#             for item in response:
+#                 if isinstance(item, BaseModel):
+#                     data.append(item.model_dump())
+#                 else:
+#                     data.append(item)
+#         # Otherwise parse as string
+#         elif isinstance(response, str):
+#             # Look for [...] pattern
+#             start = response.rfind("[")
+#             end = response.rfind("]")
+#             if start != -1 and end != -1 and start < end:
+#                 json_str = response[start : end + 1]
+#                 data = json.loads(json_str)
+#             else:
+#                 return []
+#         else:
+#             return []
+
+#         print(data)
+
+#         results = []
+#         for item in data:
+#             span_text = item.get("text", "")
+#             label = item.get("label", "")
+#             occurrence = item.get("occurrence", 1)
+
+#             start = -1
+#             last_found = -1
+#             for i in range(occurrence):
+#                 start = entry["text"].find(span_text, start + 1)
+#                 if start != -1:
+#                     last_found = start
+#             if start == -1 and last_found != -1:
+#                 start = last_found
+
+#             if start != -1:
+#                 results.append(
+#                     {
+#                         "text": span_text,
+#                         "label": label,
+#                         "start": start,
+#                         "end": start + len(span_text),
+#                     }
+#                 )
+
+#         return results
+#     except Exception:
+#         # print(f"Error: {e}")
+#         pass
+
+#     return []
+
+# parse_response_invalid(entry)
+# # %%
+# import pandas as pd
+
+# df = pd.read_csv("/home/semin/personal_work_ms/span_labeling/results/results.csv")
+
+# # %%
+# df[((df["method_type"] == "json_occurrence") & (df["structured"] == True) & (df["error_format_error"] > 0) & (df["thinking"] == False))]
+# # %%
+
+# mask = (
+#     (df["method_type"] == "json_occurrence")
+#     & (df["structured"] == True)
+#     & (df["error_format_error"] > 0)
+#     & (df["thinking"] == False)
+# )
+
+# df.loc[mask, "error_span_not_found"] += df.loc[mask, "error_format_error"]
+# df.loc[mask, "error_format_error"] = 0
+# # %%
+# for filename in error_files:
+#     with open(filename, "r") as f:
+#         data = json.loads(f.read())
+
+#     errors = {}
+#     for entry in data:
+#         error_type = analyze_error(entry)
+#         errors[error_type] = errors.get(error_type, 0) + 1
+#         # if "invalid_label" in error_type.value:
+#         #     print(error_type.value)
+#         #     print(f"{filename.stem}: {errors}")
+#         #     error_files.append(filename)
+#         #     break
+#     error_keys = [e.value for e in errors.keys()]
+#     if "invalid_label" in error_keys or "partial_invalid_label" in error_keys:
+#         print(filename)
+# # %%

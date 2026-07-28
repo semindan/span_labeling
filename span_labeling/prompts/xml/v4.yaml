@@ -1,13 +1,14 @@
-
 note_xml: &note_xml |
-  IMPORTANT: You must output the entire text, including non-tagged parts.
-  Rewrite the whole input text with XML tags.
+  The output is a full rewrite of the input text with XML tags around the
+  targeted spans. All non-tagged portions of the original text must be
+  preserved verbatim.
 output_line: &output_line "Tagged text:"
 
 prompts:
   - method: xml
     dataset: ner
-    task: "Extract named entities (PER, ORG, LOC) from the text."
+    variant: v4
+    task: "The task is to identify named-entity mentions in the input text and assign each one a category from {PER, ORG, LOC}."
     format: '<entity type="LABEL">text</entity>'
     labels: ["PER", "ORG", "LOC"]
     note: *note_xml
@@ -19,10 +20,10 @@ prompts:
       Output:
       <entity type="PER">Lina Berg</entity> joined <entity type="ORG">AstraTech</entity> in <entity type="LOC">Stockholm</entity> after finishing her studies at <entity type="ORG">Northvale University</entity>.
 
-
   - method: xml
     dataset: error
-    task: "Identify grammatical errors in the text. Only tag the incorrect words."
+    variant: v4
+    task: "The task is to find grammatical errors in the input text and categorize each one."
     format: '<error type="LABEL">text</error>'
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
     note: *note_xml
@@ -30,7 +31,8 @@ prompts:
 
   - method: xml
     dataset: synthetic
-    task: "Find all text spans that match the given pattern queries."
+    variant: v4
+    task: "The task is to return all spans of the input text that match the pattern specified in the query."
     format: '<match>text</match>'
     note: *note_xml
     last_line: *output_line
@@ -42,15 +44,15 @@ prompts:
       Output:
       house wake think grey calm wake think ship fast wake think no air <match>light</match> music play air <match>sad</match> read dark air <match>love</match> fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
 
-
   - method: xml
     dataset: multigec
-    task: "Identify grammatical errors in learner-written text."
+    variant: v4
+    task: "The task is to identify grammatical errors in text written by a language learner and label each one by category."
     format: '<error type="TYPE">text</error>'
     label_dict:
-      R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
-      M: "Missing: word is missing, use empty tag"
-      U: "Unnecessary: extra word, correction is empty string"
+      R: "Replace edit — the word is wrong; specify subcategory VERB / NOUN / DET / PREP / SPELL / PUNCT / WO / OTHER"
+      M: "Missing edit — a word is absent. Mark its position with an empty XML tag."
+      U: "Unnecessary edit — a word is superfluous; the corrected form omits it (empty string correction)."
     note: *note_xml
     last_line: *output_line
     examples:
@@ -62,15 +64,16 @@ prompts:
 
   - method: xml
     dataset: wmt
-    task: "Identify translation errors by comparing the translation to the source text. Rewrite the TRANSLATION with XML tags around errors."
+    variant: v4
+    task: "The task is to compare the translation to the source and identify all error spans in the translation, categorized by severity."
     format: '<error type="LEVEL">text</error>'
     label_dict:
-      MINOR: "Minor error (understandable, small mistake)"
-      MAJOR: "Major error (changes meaning, serious mistake)"
+      MINOR: "A minor issue that does not obscure the meaning"
+      MAJOR: "A major issue that changes what the sentence means"
     note: |
-      IMPORTANT: You must output the entire translation text, including non-tagged parts.
-      Only tag errors in the TRANSLATION. Keep correct words unchanged.
-      If there are no errors, output the translation as is without any tags.
+      The output is a full rewrite of the TRANSLATION with XML tags around
+      error spans only. Non-error text is preserved verbatim. When the
+      translation has no errors, output it unchanged without any tags.
     last_line: *output_line
     examples:
     - |

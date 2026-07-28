@@ -6,20 +6,37 @@ PROJECT_ROOT = Path(__file__).absolute().parent.parent.as_posix()
 
 
 def load_prompts(prompts_dir: str = "span_labeling/prompts") -> dict:
-    """Load all YAML files from prompts directory"""
-    prompts = {}
+    """Load all YAML files from prompts directory (recursive).
+
+    Registry shape: prompts[method][dataset][variant] -> prompt_data.
+    Each prompt entry must declare method, dataset, and variant.
+    Duplicate (method, dataset, variant) triples raise.
+    """
+    prompts: dict = {}
     prompts_path = Path(PROJECT_ROOT) / prompts_dir
 
     if not prompts_path.exists():
         raise FileNotFoundError(f"Prompts directory not found: {prompts_dir}")
 
-    for yaml_file in prompts_path.glob("*.yaml"):
+    for yaml_file in prompts_path.rglob("*.yaml"):
         with open(yaml_file) as f:
             data = yaml.safe_load(f)
 
         for prompt in data["prompts"]:
-            prompts[prompt["method"]] = prompts.get(prompt["method"], {})
-            prompts[prompt["method"]][prompt["dataset"]] = prompt
+            method = prompt["method"]
+            dataset = prompt["dataset"]
+            if "variant" not in prompt:
+                raise ValueError(
+                    f"Missing 'variant' field in {yaml_file} for {method}/{dataset}"
+                )
+            variant = prompt["variant"]
+            by_dataset = prompts.setdefault(method, {})
+            by_variant = by_dataset.setdefault(dataset, {})
+            if variant in by_variant:
+                raise ValueError(
+                    f"Duplicate prompt for {method}/{dataset}/{variant} in {yaml_file}"
+                )
+            by_variant[variant] = prompt
 
     return prompts
 
@@ -27,16 +44,26 @@ def load_prompts(prompts_dir: str = "span_labeling/prompts") -> dict:
 PROMPT_REGISTRY = load_prompts()
 
 
-def get_prompt_config(method: str, dataset: str):
-    return PROMPT_REGISTRY.get(method, {}).get(dataset, {})
+def get_prompt_config(method: str, dataset: str, variant: str = "v1"):
+    prompt_data = PROMPT_REGISTRY.get(method, {}).get(dataset, {}).get(variant)
+    if not prompt_data:
+        available = list(PROMPT_REGISTRY.get(method, {}).get(dataset, {}).keys())
+        raise ValueError(
+            f"No prompt found for {method}/{dataset}/{variant} "
+            f"(available variants: {available})"
+        )
+    return prompt_data
 
 
 def build_prompt(
-    method: str, dataset: str, entry: dict, note_extra: str = "", example_n: int = 100
+    method: str,
+    dataset: str,
+    entry: dict,
+    note_extra: str = "",
+    example_n: int = 100,
+    variant: str = "v1",
 ) -> str:
-    prompt_data = get_prompt_config(method, dataset)
-    if not prompt_data:
-        raise ValueError(f"No prompt found for {method}/{dataset}")
+    prompt_data = get_prompt_config(method, dataset, variant)
 
     sections = []
 

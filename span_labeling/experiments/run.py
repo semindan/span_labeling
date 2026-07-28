@@ -49,8 +49,9 @@ def run_experiment_async(config: Settings):
     seed = config.seed
     clean_model_name = model_name.replace(":", "_").replace(".", "_").replace("/", "__")
     dataset_name = config.dataset.name
+    prompt_variant = config.method.prompt_variant
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    generated_name = f"{experiment_name}_{clean_model_name}_{method_name}_{dataset_name}_{seed}_{timestamp}"
+    generated_name = f"{experiment_name}_{clean_model_name}_{method_name}_{prompt_variant}_{dataset_name}_{seed}_{timestamp}"
     output_file_name = f"{generated_name}_results.json"
     output_path = Path(PROJECT_ROOT) / config.experiment.output_dir / output_file_name
 
@@ -153,6 +154,8 @@ def main(config_path: str, port: int = 8057):
         if instance_config.project.skip_experiment_if_exists:
             output_path = Path(PROJECT_ROOT) / settings.experiment.output_dir
             df = pd.read_csv(output_path / "results.csv")
+            if "prompt_variant" not in df.columns:
+                df["prompt_variant"] = "v1"
             experiment_name = instance_config.experiment.name
             method_name = instance_config.method.name
             model_name = instance_config.model.name
@@ -160,6 +163,7 @@ def main(config_path: str, port: int = 8057):
             constrained = instance_config.method.constrained
             thinking = instance_config.model.enable_thinking
             structured = instance_config.method.use_structured_outputs
+            prompt_variant = instance_config.method.prompt_variant
 
             filtered_df = df[
                 (df["experiment_name"] == experiment_name)
@@ -170,6 +174,7 @@ def main(config_path: str, port: int = 8057):
                 & (df["constrained"] == constrained)
                 & (df["thinking"] == thinking)
                 & (df["structured"] == structured)
+                & (df["prompt_variant"] == prompt_variant)
             ]
 
             if not filtered_df.empty:
@@ -184,6 +189,7 @@ def main(config_path: str, port: int = 8057):
                 print(f"constrained: {constrained}")
                 print(f"thinking: {thinking}")
                 print(f"structured: {structured}")
+                print(f"prompt_variant: {prompt_variant}")
                 continue
 
         if settings.experiment.mode == "vllm":

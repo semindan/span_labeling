@@ -1,13 +1,14 @@
-
 note_occurrence: &note_occurrence |
-  Return a valid JSON array only.
-  If a word appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
+  You must return your answer as a single valid JSON array with no prose
+  around it. If a target span occurs multiple times, use the "occurrence"
+  field to disambiguate (1 = first, 2 = second, ...).
 output_line: &output_line "JSON Output:"
 
 prompts:
   - method: json_occurrence
     dataset: ner
-    task: "Extract named entities (PER, ORG, LOC) from the text."
+    variant: v3
+    task: "You are annotating named entities. Mark every mention of a person (PER), organization (ORG), or location (LOC) in the text below."
     format: '[{"text": "exact span from input", "label": "category (PER, ORG, LOC)", "occurrence": "which occurrence (1, 2, 3...)"}]'
     labels: ["PER", "ORG", "LOC"]
     note: *note_occurrence
@@ -26,7 +27,8 @@ prompts:
 
   - method: json_occurrence
     dataset: error
-    task: "Identify grammatical errors in the text."
+    variant: v3
+    task: "You are proofreading the text. Mark each grammatical mistake you find and label it."
     format: '[{"text": "exact span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)", "occurrence": "which occurrence (1, 2, 3...)"}]'
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
     note: *note_occurrence
@@ -34,7 +36,8 @@ prompts:
 
   - method: json_occurrence
     dataset: synthetic
-    task: "Find all text spans that match the given pattern queries."
+    variant: v3
+    task: "You are running a regex-style search. Return every span in the text that matches the query."
     format: '[{"text": "exact span from input", "occurrence": "which occurrence (1, 2, 3...)"}]'
     note: *note_occurrence
     last_line: *output_line
@@ -52,12 +55,13 @@ prompts:
 
   - method: json_occurrence
     dataset: multigec
-    task: "Identify grammatical errors in learner-written text."
+    variant: v3
+    task: "You are correcting a language learner. Mark each grammatical error in their text and label its type."
     format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
     label_dict:
-      R: "Replace: wrong word with category (VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER) that needs to be replaced"
-      M: "Missing: word is missing (the first non-whitespace token right before the error)"
-      U: "Unnecessary: extra word"
+      R: "Replace: this word is incorrect and should be replaced (subcategory: VERB / NOUN / DET / PREP / SPELL / PUNCT / WO / OTHER)"
+      M: "Missing: a word is missing here. Point at the missing spot by giving the first non-whitespace token that appears right before it."
+      U: "Unnecessary: this word should be removed"
     note: *note_occurrence
     last_line: *output_line
     examples:
@@ -74,16 +78,17 @@ prompts:
 
   - method: json_occurrence
     dataset: wmt
-    task: "Identify translation errors by comparing the translation to the source text."
+    variant: v3
+    task: "You are evaluating a translation. Read the source, then mark every error you find in the translation and label its severity."
     format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR", "occurrence": "which occurrence (1, 2, 3...)"}]'
     label_dict:
-      MINOR: "Minor error (understandable, small mistake)"
-      MAJOR: "Major error (changes meaning, serious mistake)"
+      MINOR: "Minor severity — the reader still gets the point"
+      MAJOR: "Major severity — the meaning is affected"
     note: |
-      Extract the exact text spans from the TRANSLATION that contain errors.
-      If a word or phrase appears multiple times, use occurrence to specify which one (1 = first, 2 = second, etc.)
-      Return a valid JSON array only.
-      If no errors exist, return an empty array: []
+      You must return the exact error spans from the TRANSLATION as a valid
+      JSON array with no prose around it. If a span appears more than once
+      in the translation, disambiguate with the "occurrence" field
+      (1 = first match, 2 = second, ...). When there are no errors, return [].
     last_line: *output_line
     examples:
     - |

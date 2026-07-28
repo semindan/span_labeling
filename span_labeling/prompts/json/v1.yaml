@@ -5,6 +5,7 @@ output_line: &output_line "JSON Output:"
 prompts:
   - method: json
     dataset: ner
+    variant: v1
     task: "Extract named entities (PER, ORG, LOC) from the text."
     format: '[{"text": "exact text span from input", "label": "category (PER, ORG, LOC)"}]'
     labels: ["PER", "ORG", "LOC"]
@@ -24,6 +25,7 @@ prompts:
 
   - method: json
     dataset: error
+    variant: v1
     task: "Identify grammatical errors in the text."
     format: '[{"text": "exact text span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)"}]'
     labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
@@ -32,6 +34,7 @@ prompts:
 
   - method: json
     dataset: synthetic
+    variant: v1
     task: "Find all text spans that match the given pattern queries."
     format: '[{"text": "exact span or pattern from input"}]'
     note: *note_json
@@ -50,6 +53,7 @@ prompts:
 
   - method: json
     dataset: multigec
+    variant: v1
     task: "Identify grammatical errors in learner-written text."
     format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
     label_dict:
@@ -73,6 +77,7 @@ prompts:
 
   - method: json
     dataset: wmt
+    variant: v1
     task: "Identify translation errors by comparing the translation to the source text."
     format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR"}]'
     label_dict:

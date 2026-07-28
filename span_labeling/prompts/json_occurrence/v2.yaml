@@ -1,0 +1,103 @@
+note_occurrence: &note_occurrence |
+  Format your response as a valid JSON array and nothing else. When the same
+  text appears more than once in the input, set "occurrence" to indicate
+  which instance (1 for the first, 2 for the second, and so on).
+output_line: &output_line "JSON Output:"
+
+prompts:
+  - method: json_occurrence
+    dataset: ner
+    variant: v2
+    task: "Locate mentions of named entities in the passage below and label each one as a person (PER), organization (ORG), or location (LOC)."
+    format: '[{"text": "exact span from input", "label": "category (PER, ORG, LOC)", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    labels: ["PER", "ORG", "LOC"]
+    note: *note_occurrence
+    last_line: *output_line
+    examples:
+    - |
+      Text: Lina Berg joined AstraTech in Stockholm after finishing her studies at Northvale University.
+
+      Output:
+      [
+        {"text": "Lina Berg", "label": "PER", "occurrence": 1},
+        {"text": "AstraTech", "label": "ORG", "occurrence": 1},
+        {"text": "Stockholm", "label": "LOC", "occurrence": 1},
+        {"text": "Northvale University", "label": "ORG", "occurrence": 1}
+      ]
+
+  - method: json_occurrence
+    dataset: error
+    variant: v2
+    task: "Locate every grammatical mistake in the passage below and assign each one a category from the label set."
+    format: '[{"text": "exact span from input", "label": "category (GRAMMAR, SPELLING, PUNCTUATION)", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    labels: ["GRAMMAR", "SPELLING", "PUNCTUATION"]
+    note: *note_occurrence
+    last_line: *output_line
+
+  - method: json_occurrence
+    dataset: synthetic
+    variant: v2
+    task: "Locate every substring of the passage that satisfies the pattern described in the task above."
+    format: '[{"text": "exact span from input", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    note: *note_occurrence
+    last_line: *output_line
+    examples:
+    - |
+      Task: Find all sequences matching '\\w+' that are preceded by 'air'.
+      Text: house wake think grey calm wake think ship fast wake think no air light music play air sad read dark air love fast angry dark red bad person dark red bad white dark red bad read work dark sometimes sad wet dark sometimes think old dark sometimes yellow car give drink tree give drink drink river
+
+      Output:
+      [
+        {"text": "light", "occurrence": 1},
+        {"text": "sad", "occurrence": 1},
+        {"text": "love", "occurrence": 1}
+      ]
+
+  - method: json_occurrence
+    dataset: multigec
+    variant: v2
+    task: "Locate every grammatical error made by the language learner in the passage below and categorize each one."
+    format: '[{"text": "exact text span from input (or the first non-whitespace token right before the error for M)", "label": "error type (R/U/M)"}]'
+    label_dict:
+      R: "Replace: a wrong word that needs to be replaced. Subcategory: VERB, NOUN, DET, PREP, SPELL, PUNCT, WO, OTHER"
+      M: "Missing: a word is missing. Return the first non-whitespace token immediately before the missing word."
+      U: "Unnecessary: an extra word is present"
+    note: *note_occurrence
+    last_line: *output_line
+    examples:
+    - |
+      Text: She go to school every day , but yesterday she forget her homework . She brought book to class .
+
+      Output:
+      [
+        {"text": "go", "label": "R", "occurrence": 1},
+        {"text": ",", "label": "U", "occurrence": 1},
+        {"text": "forget", "label": "R", "occurrence": 1},
+        {"text": "brought", "label": "M", "occurrence": 1}
+      ]
+
+  - method: json_occurrence
+    dataset: wmt
+    variant: v2
+    task: "Compare the translation against its source and locate every span in the translation that constitutes a translation error, categorizing each by severity."
+    format: '[{"text": "exact error span from translation", "label": "MINOR or MAJOR", "occurrence": "which occurrence (1, 2, 3...)"}]'
+    label_dict:
+      MINOR: "Minor: understandable, a small mistake"
+      MAJOR: "Major: changes meaning, a serious mistake"
+    note: |
+      Extract the error spans verbatim from the TRANSLATION. When the same
+      span occurs more than once, use "occurrence" to indicate which
+      instance (1 for the first, 2 for the second). Format your response
+      as a valid JSON array and nothing else. If the translation has no
+      errors, return [].
+    last_line: *output_line
+    examples:
+    - |
+      Source: The boy gave his sister the red ball yesterday.
+      Translation: Der Junge gab seine Schwester der rote Ball gestern .
+      Output:
+      [
+        {"text": "gab seine Schwester", "label": "MAJOR", "occurrence": 1},
+        {"text": "rote", "label": "MAJOR", "occurrence": 1},
+        {"text": "gestern .", "label": "MINOR", "occurrence": 1}
+      ]
